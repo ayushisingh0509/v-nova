@@ -24,7 +24,23 @@ type CartContextType = {
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export const CartProvider = ({ children }: { children: ReactNode }) => {
-  const [items, setItems] = useState<CartItem[]>([]);
+  const [items, setItems] = useState<CartItem[]>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("cart_items");
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch (e) {
+          console.error("Failed to parse cart items", e);
+        }
+      }
+    }
+    return [];
+  });
+
+  React.useEffect(() => {
+    localStorage.setItem("cart_items", JSON.stringify(items));
+  }, [items]);
 
   const addItem = (item: CartItem) => {
     setItems((prevItems) => {
@@ -33,9 +49,12 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       );
 
       if (existingItemIndex > -1) {
-        // If item exists, increment quantity
+        // If item exists, increment quantity safely (create new object for the updated item)
         const updatedItems = [...prevItems];
-        updatedItems[existingItemIndex].quantity += item.quantity;
+        updatedItems[existingItemIndex] = {
+          ...updatedItems[existingItemIndex],
+          quantity: updatedItems[existingItemIndex].quantity + item.quantity
+        };
         return updatedItems;
       } else {
         // If item doesn't exist, add it

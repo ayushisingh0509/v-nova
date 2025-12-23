@@ -9,40 +9,25 @@ export const prompts = {
   `,
 
   categoryNavigation: `
-    You are a high-precision category navigation detection system for an e-commerce voice assistant.
-    Your task is to determine when a user wants to browse a specific product category.
-    
+    You are a high-precision category navigation detection system.
+    Your task is to determine if the user wants to navigate to a product category.
+
     Analyze this voice command: "{transcript}"
+
+    AVAILABLE CATEGORIES:
+    1. "gym" (gym clothes, workout gear, fitness apparel, weights)
+    2. "yoga" (yoga mats, meditation items, stretching gear)
+    3. "running" (running shoes, joggers, track gear)
+
+    INSTRUCTIONS:
+    - If the user explicitly mentions "gym", "yoga", or "running" related terms, return that category.
+    - If the user implies a category (e.g., "I want to lift weights" -> gym), return that category.
+    - If the user asks for a category NOT listed (e.g., "swimming", "hiking"), return "none".
     
-    Available categories:
-    - gym (fitness equipment, workout clothes, training gear)
-    - yoga (yoga mats, yoga clothes, meditation items)
-    - running (running shoes, jogging clothes, running accessories)
-    
-    ADVANCED CATEGORY DETECTION:
-    1. Direct category mentions:
-       - GYM: "gym clothes", "workout gear", "training equipment", "fitness apparel"
-       - YOGA: "yoga pants", "yoga mat", "meditation items", "stretching equipment"
-       - RUNNING: "running shoes", "jogging pants", "track gear", "runner's equipment"
-    
-    2. Activity-based implications:
-       - GYM: "weightlifting", "strength training", "bodybuilding", "exercising"
-       - YOGA: "meditation", "stretching", "flexibility", "mindfulness", "poses"
-       - RUNNING: "jogging", "sprinting", "marathon", "track", "cardio"
-    
-    3. Location-based context:
-       - GYM: "at the gym", "fitness center", "weight room"
-       - YOGA: "yoga studio", "yoga class", "meditation session"
-       - RUNNING: "on the track", "on the trail", "for my jog", "on my run"
-    
-    4. Contextual patterns:
-       - "I am running with my sister" → running
-       - "Going to yoga tomorrow" → yoga
-       - "Need something for the gym" → gym
-       - "Something to wear while jogging" → running
-    
-    Return ONLY the exact category name ("gym", "yoga", or "running") if detected, or "none" if no category is mentioned.
-    Do not include any other text in your response.
+    Return a JSON object:
+    {
+      "target": "gym" | "yoga" | "running" | "none"
+    }
   `,
 
   interpretCommand: `
@@ -76,13 +61,15 @@ export const prompts = {
     {
       "action": "size" | "quantity" | "addToCart" | "none",
       "size": "the size mentioned" | null,
-      "quantity": number | null
+      "quantity": number | null,
+      "productName": "explicitly mentioned product name" | null
     }
     
     INSTRUCTIONS:
     - For size, return the exact size as listed in available sizes, or null if no size mentioned
     - For quantity, return the number mentioned, or null if no quantity mentioned
     - If the user wants to add to cart, set action to "addToCart"
+    - If the user mentions a specific product name to add (e.g. "add the yoga mat to cart"), extract it as "productName"
     - If no relevant action is detected, set action to "none"
     - Return ONLY the JSON object, no other text
   `,
@@ -166,43 +153,28 @@ export const prompts = {
   `,
 
   productDetailNavigation: `
-    You are a high-precision product detection system for an e-commerce voice assistant.
-    Your task is to determine when a user wants to view a specific product and which one.
-    
+    You are a high-precision product detection system.
+    Your task is to identify WHICH specific product the user wants to view from the provided list.
+
     Analyze this voice command: "{transcript}"
-    
-    Available products:
+
+    AVAILABLE PRODUCTS (ID: Name - Description):
     {productList}
-    
-    ADVANCED PRODUCT DETECTION RULES:
-    1. Direct product mentions:
-       - "Show me the [product name]"
-       - "I want to see the [product name]"
-       - "Tell me about the [product name]"
-       - "View the [product name]"
-    
-    2. Partial name matching:
-       - Match even if the user only mentions part of the product name
-       - E.g., "Show me the yoga mat" should match "Premium Yoga Mat with Non-Slip Surface"
-       - E.g., "Let me see those running shoes" should match "Performance Running Shoes"
-    
-    3. Feature or attribute matching:
-       - If the user describes unique features of a product without naming it
-       - E.g., "Show me those shoes with the special cushioning" → match to a product with that feature
-    
-    4. Contextual intent:
-       - "I need more details about..." → this indicates product view intent
-       - "What's the price of..." → this indicates product view intent
-       - "Tell me more about..." → this indicates product view intent
-    
-    IDENTIFICATION PROCESS:
-    1. First look for exact name matches
-    2. If none found, look for partial name matches
-    3. If still none found, look for products matching described features
-    4. Return the most likely match, or "none" if no match is found
-    
-    Return ONLY the exact product name as listed above if you can identify it, or "none" if not.
-    Do not include any other text in your response.
+
+    INSTRUCTIONS:
+    1.  Match the user's intent to one of the available products.
+    2.  Prioritize exact name matches.
+    3.  If no exact match, look for semantic matches (e.g., "blue shoes" matches "Men's Blue Running Shoes").
+    4.  If the user asks to "tell me about", "describe", or "what is" a product, match that product.
+    5.  If the user is describing features unique to a product, match it.
+
+    Return a JSON object:
+    {
+      "productId": "string_id_from_list" | null,
+      "confidence": number (0-1)
+    }
+
+    Return null for productId if no clear match is found.
   `,
 
   userInfo: `
@@ -407,8 +379,8 @@ export const prompts = {
        Examples: "add to cart", "select size medium", "change quantity to 2"
        NOTE: This ONLY applies when viewing a specific product detail page
     
-    6. "product_navigation" - User wants to view a specific product's details
-       Examples: "show me the running shoes", "I want to see the yoga mat"
+    6. "product_navigation" - User wants to view a specific product's details OR asks for a description
+       Examples: "show me the running shoes", "I want to see the yoga mat", "tell me about the blue leggings", "describe the gym tank"
     
     7. "remove_filter" - User wants to remove specific filters
        Examples: "remove the red filter", "take off size small", "get rid of price range"
@@ -436,7 +408,7 @@ export const prompts = {
       2. Otherwise → "apply_filter"
     
     - For general shopping phrases, use these rules:
-      1. If it mentions a specific product by name → "product_navigation"
+      1. If it mentions a specific product by name OR asks to "tell me about"/"describe" a product → "product_navigation"
       2. If it mentions a category (gym, yoga, running) → "category_navigation"
       3. If it mentions characteristics (color, size, gender) → "apply_filter"
     
@@ -447,6 +419,7 @@ export const prompts = {
     - "Go back to the previous page" → "navigation" (navigating back)
     - "Add this to my cart" → "product_action" (if on product page)
     - "My credit card is 1234..." → "user_info" (providing payment info)
+    - "Tell me about the black running shoes" → "product_navigation"
     
     Return ONLY the intent category name as a string, nothing else. 
     Examples: "navigation", "apply_filter", "category_navigation", etc.
