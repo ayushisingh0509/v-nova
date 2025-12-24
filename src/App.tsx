@@ -12,6 +12,7 @@ import PaymentPage from "./pages/PaymentPage";
 import ConfirmationPage from "./pages/ConfirmationPage";
 import NotFound from "./pages/NotFound";
 import { VoiceAssistant } from "./components/VoiceAssistant";
+import { VapiAssistant } from "./components/VapiAssistant";
 import { CartProvider } from "./context/CartContext";
 import { VoiceListener } from "./components/VoiceListener";
 import { FilterProvider } from "./context/FilterContext";
@@ -43,6 +44,7 @@ const App = () => (
               </Routes>
               <VoiceListener />
               {/*<VoiceAssistant /> */}
+              <VapiAssistant />
             </BrowserRouter>
           </TooltipProvider>
         </ProductProvider>

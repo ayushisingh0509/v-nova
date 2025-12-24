@@ -8,16 +8,7 @@
   <meta name="description" content="Lovable Generated Project" />
   <meta name="author" content="Lovable" />
 
-  <style>
-    #vapi-widget-wrapper {
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      width: 400px;
-      height: 600px;
-      z-index: 2147483646;
-    }
-  </style>
+
 
   <meta property="og:title" content="Lovable Generated Project" />
   <meta property="og:description" content="Lovable Generated Project" />
@@ -31,114 +22,10 @@
 
 <body>
   <div id="root"></div>
-  <div id="vapi-widget-wrapper">
-
-    <vapi-widget id="vapi-widget" public-key="32a31d56-15a6-4892-9942-95831e5c7b28"
-      assistant-id="95b9bac3-c51d-43d3-9ef1-0a00ace69216" mode="voice" theme="dark" base-bg-color="#000000"
-      accent-color="#14B8A6" cta-button-color="#000000" cta-button-text-color="#ffffff" border-radius="large"
-      style="width: 100%; height: 100%;" position="bottom-right" title="Vapi" start-button-text="Start"
-      end-button-text="End Call" chat-first-message="Hey, I'm Voix Nova, how can I help you today?"
-      chat-placeholder="Type your message..." voice-show-transcript="true" consent-required="true"
-      consent-title="Terms and conditions"
-      consent-content="By clicking 'Agree', and each time I interact with this AI agent, I consent to the recording, storage, and sharing of my communications with third-party service providers, and as otherwise described in our Terms of Service."
-      consent-storage-key="vapi_widget_consent"></vapi-widget>
-  </div>
 
 
-  <script src="https://unpkg.com/@vapi-ai/client-sdk-react/dist/embed/widget.umd.js" async
-    type="text/javascript"></script>
-  <script>
-    (function attachVapiBridge() {
-      const RELAY_EVENT = 'vapi:final';
 
-      function normaliseMessage(detail) {
-        if (!detail) return '';
-        if (typeof detail === 'string') return detail;
 
-        const message = detail.message || detail.data || detail;
-        const role = message.role || detail.role;
-        if (role && role !== 'user') {
-          return '';
-        }
-
-        if (typeof message === 'string') return message;
-        if (message.text && typeof message.text === 'string') return message.text;
-        if (message.content) {
-          if (typeof message.content === 'string') return message.content;
-          if (Array.isArray(message.content)) {
-            return message.content
-              .map((part) => {
-                if (!part) return '';
-                if (typeof part === 'string') return part;
-                if (typeof part.text === 'string') return part.text;
-                if (typeof part.value === 'string') return part.value;
-                return '';
-              })
-              .filter(Boolean)
-              .join(' ');
-          }
-        }
-        if (detail.text && typeof detail.text === 'string') return detail.text;
-        if (detail.transcript && typeof detail.transcript === 'string') return detail.transcript;
-
-        return '';
-      }
-
-      function relay(text) {
-        if (!text) return;
-        try {
-          window.dispatchEvent(new CustomEvent(RELAY_EVENT, { detail: { text } }));
-        } catch (e) {
-          console.warn('Failed to relay Vapi message', e);
-        }
-      }
-
-      function attachListeners(widget) {
-        if (!widget || widget.__voixNovaBridgeAttached) return;
-        widget.__voixNovaBridgeAttached = true;
-
-        const handleMessage = (event) => {
-          const text = normaliseMessage(event?.detail);
-          if (text) relay(text);
-        };
-
-        const handleTranscript = (event) => {
-          const text = normaliseMessage(event?.detail);
-          if (text) relay(text);
-        };
-
-        ['message', 'final'].forEach((eventName) => {
-          try {
-            widget.addEventListener(eventName, handleMessage);
-          } catch (e) {
-            console.warn('Failed to attach Vapi message handler', eventName, e);
-          }
-        });
-
-        ['transcript'].forEach((eventName) => {
-          try {
-            widget.addEventListener(eventName, handleTranscript);
-          } catch (e) {
-            console.warn('Failed to attach Vapi transcript handler', eventName, e);
-          }
-        });
-      }
-
-      function init() {
-        const widget = document.querySelector('vapi-widget');
-        if (widget) attachListeners(widget);
-      }
-
-      if (window.customElements && window.customElements.whenDefined) {
-        window.customElements.whenDefined('vapi-widget').then(init);
-      }
-
-      const observer = new MutationObserver(() => init());
-      observer.observe(document.body, { childList: true, subtree: true });
-
-      init();
-    })();
-  </script>
 
   <!-- IMPORTANT: DO NOT REMOVE THIS SCRIPT TAG OR THIS VERY COMMENT! -->
   <script src="https://cdn.gpteng.co/gptengineer.js" type="module"></script>
