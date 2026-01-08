@@ -26,7 +26,7 @@ const ProductDetailPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { addItem } = useCart();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   const {
     selectedSize,
@@ -98,7 +98,9 @@ const ProductDetailPage = () => {
 
             {/* Product info */}
             <div>
-              <h1 className="text-3xl font-bold">{product.name}</h1>
+              <h1 className="text-3xl font-bold">
+                {language === 'ar' && product.nameAr ? product.nameAr : product.name}
+              </h1>
               <div className="flex items-center mt-2">
                 <div className="flex">
                   {[1, 2, 3, 4, 5].map((star) => (
@@ -119,7 +121,9 @@ const ProductDetailPage = () => {
 
               <div className="mt-6">
                 <h3 className="text-sm font-medium">{t('product.description')}</h3>
-                <p className="mt-2 text-gray-600">{product.description}</p>
+                <p className="mt-2 text-gray-600">
+                  {language === 'ar' && product.descriptionAr ? product.descriptionAr : product.description}
+                </p>
               </div>
 
               {/* Size selection */}

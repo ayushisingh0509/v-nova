@@ -20,7 +20,7 @@ import { useFilters } from "@/context/FilterContext";
 import { useLanguage } from "@/context/LanguageContext";
 
 const ProductListingPage = () => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   const sortOptions = [
     { label: t('sort.priceAsc'), value: "price-asc" },
@@ -215,7 +215,7 @@ const ProductListingPage = () => {
                           htmlFor={`gender-${gender}`}
                           className="ml-2 text-sm cursor-pointer capitalize"
                         >
-                          {gender}
+                          {t('gender.' + gender)}
                         </label>
                       </div>
                     ))}
@@ -241,7 +241,7 @@ const ProductListingPage = () => {
                           htmlFor={`subcat-${subCat}`}
                           className="ml-2 text-sm cursor-pointer capitalize"
                         >
-                          {subCat}
+                          {t('subcategory.' + subCat)}
                         </label>
                       </div>
                     ))}
@@ -263,7 +263,7 @@ const ProductListingPage = () => {
                           htmlFor={`brand-${brand}`}
                           className="ml-2 text-sm cursor-pointer"
                         >
-                          {brand}
+                          {t('brand.' + brand)}
                         </label>
                       </div>
                     ))}
@@ -372,7 +372,7 @@ const ProductListingPage = () => {
                               htmlFor={`mobile-gender-${gender}`}
                               className="ml-2 text-sm cursor-pointer capitalize"
                             >
-                              {gender}
+                              {t('gender.' + gender)}
                             </label>
                           </div>
                         ))}
@@ -398,7 +398,7 @@ const ProductListingPage = () => {
                               htmlFor={`mobile-subcat-${subCat}`}
                               className="ml-2 text-sm cursor-pointer capitalize"
                             >
-                              {subCat}
+                              {t('subcategory.' + subCat)}
                             </label>
                           </div>
                         ))}
@@ -422,7 +422,7 @@ const ProductListingPage = () => {
                               htmlFor={`mobile-brand-${brand}`}
                               className="ml-2 text-sm cursor-pointer"
                             >
-                              {brand}
+                              {t('brand.' + brand)}
                             </label>
                           </div>
                         ))}
@@ -558,7 +558,7 @@ const ProductListingPage = () => {
               <div className="flex flex-wrap gap-2 mt-4 mb-6">
                 {selectedFilters.colors.map((color) => (
                   <Badge key={`color-${color}`} variant="secondary" className="px-3 py-1">
-                    <span className="mr-1">{color}</span>
+                    <span className="mr-1">{t('color.' + color)}</span>
                     <X
                       className="h-3 w-3 cursor-pointer"
                       onClick={() => toggleFilter("colors", color)}
@@ -576,7 +576,7 @@ const ProductListingPage = () => {
                 ))}
                 {selectedFilters.materials.map((material) => (
                   <Badge key={`material-${material}`} variant="secondary" className="px-3 py-1">
-                    <span className="mr-1">{material}</span>
+                    <span className="mr-1">{t('material.' + material)}</span>
                     <X
                       className="h-3 w-3 cursor-pointer"
                       onClick={() => toggleFilter("materials", material)}
@@ -585,7 +585,7 @@ const ProductListingPage = () => {
                 ))}
                 {selectedFilters.genders.map((gender) => (
                   <Badge key={`gender-${gender}`} variant="secondary" className="px-3 py-1">
-                    <span className="mr-1">{gender}</span>
+                    <span className="mr-1">{t('gender.' + gender)}</span>
                     <X
                       className="h-3 w-3 cursor-pointer"
                       onClick={() => toggleFilter("genders", gender)}
@@ -594,7 +594,7 @@ const ProductListingPage = () => {
                 ))}
                 {selectedFilters.brands.map((brand) => (
                   <Badge key={`brand-${brand}`} variant="secondary" className="px-3 py-1">
-                    <span className="mr-1">{brand}</span>
+                    <span className="mr-1">{t('brand.' + brand)}</span>
                     <X
                       className="h-3 w-3 cursor-pointer"
                       onClick={() => toggleFilter("brands", brand)}
@@ -603,7 +603,7 @@ const ProductListingPage = () => {
                 ))}
                 {selectedFilters.subCategories.map((category) => (
                   <Badge key={`category-${category}`} variant="secondary" className="px-3 py-1">
-                    <span className="mr-1">{category}</span>
+                    <span className="mr-1">{t('subcategory.' + category)}</span>
                     <X
                       className="h-3 w-3 cursor-pointer"
                       onClick={() => toggleFilter("subCategories", category)}
@@ -653,12 +653,14 @@ const ProductListingPage = () => {
                       </div>
                       <div className="p-4">
                         <div className="flex justify-between mb-1">
-                          <h3 className="font-medium">{product.name}</h3>
+                          <h3 className="font-medium">
+                            {language === 'ar' && product.nameAr ? product.nameAr : product.name}
+                          </h3>
                           <p className="font-bold">${product.price.toFixed(2)}</p>
                         </div>
                         <div className="flex justify-between text-sm">
                           <p className="text-gray-500 capitalize">
-                            {product.brand}
+                            {language === 'ar' && product.brandAr ? product.brandAr : product.brand}
                           </p>
                           <div className="flex items-center">
                             <span className="mr-1">★</span>
