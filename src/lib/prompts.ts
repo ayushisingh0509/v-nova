@@ -4,6 +4,8 @@ export const prompts = {
     Analyze this voice command and determine if the user wants to clear all filters.
     Command: "{transcript}"
     
+    NOTE: The user may speak in Arabic or another language. Translate their intent accordingly.
+    
     Return ONLY "yes" if the user wants to clear/reset/remove filters, or "no" if not.
     Do not include any other text in your response.
   `,
@@ -20,6 +22,7 @@ export const prompts = {
     3. "running" (running shoes, joggers, track gear)
 
     INSTRUCTIONS:
+    - The user may speak in Arabic. Translate "رياضة" to gym, "يوغا" to yoga, "جري/ركض" to running.
     - If the user explicitly mentions "gym", "yoga", or "running" related terms, return that category.
     - If the user implies a category (e.g., "I want to lift weights" -> gym), return that category.
     - If the user asks for a category NOT listed (e.g., "swimming", "hiking"), return "none".
@@ -38,6 +41,8 @@ export const prompts = {
 
     Available functions:
     {availableFunctions}
+
+    NOTE: The user may speak in Arabic. Interpret the command in their language and map to the closest English function.
 
     Return ONLY the function name that best matches the user's intent, or "unknown" if no function matches.
     If the user says "show me my card" , or "take me to the card page" or "take me to the carpet page" , he is probably asking to show him his cart.......consider that.
@@ -66,10 +71,11 @@ export const prompts = {
     }
     
     INSTRUCTIONS:
+    - Input may be in Arabic. Translate numbers and sizes to English standards (e.g. "صغير" -> "S", "كبير" -> "L").
     - For size, return the exact size as listed in available sizes, or null if no size mentioned
     - For quantity, return the number mentioned, or null if no quantity mentioned
     - If the user wants to add to cart, set action to "addToCart"
-    - If the user mentions a specific product name to add (e.g. "add the yoga mat to cart"), extract it as "productName"
+    - If the user mentions a specific product name to add (e.g. "add the yoga mat to cart"), extract it as "productName". If in Arabic, provide the Arabic name or English translation if obvious.
     - If no relevant action is detected, set action to "none"
     - Return ONLY the JSON object, no other text
   `,
@@ -91,6 +97,8 @@ export const prompts = {
     - "View items in my cart"
     - "Check my cart"
     
+    NOTE: The user may speak in Arabic (e.g. "اعرض السلة"). Treat these as positive matches.
+
     Return ONLY "yes" if the user wants to view their cart, or "no" if not.
     Do not include any other text in your response.
   `,
@@ -111,6 +119,11 @@ export const prompts = {
     - Price Range: Any range between 0-200 dollars
 
     CONTEXTUAL UNDERSTANDING INSTRUCTIONS:
+    0. MULTILINGUAL SUPPORT: The user may speak in Arabic. You MUST translate their intent to the corresponding ENGLISH filter value listed above. 
+       - e.g. "أحمر" -> "red"
+       - e.g. "رجال" -> "men"
+       - e.g. "سبرينت فورس" -> "SprintForce"
+
     1. Look for DIRECT mentions of filter preferences. Map ONLY to the available filter values listed above.
     2. For gender filters, infer from contextual clues BUT ONLY map to 'men', 'women', or 'unisex' if found:
        - "with my sister/girlfriend/mom/daughter/wife" → women
@@ -164,9 +177,10 @@ export const prompts = {
     INSTRUCTIONS:
     1.  Match the user's intent to one of the available products.
     2.  Prioritize exact name matches.
-    3.  If no exact match, look for semantic matches (e.g., "blue shoes" matches "Men's Blue Running Shoes").
-    4.  If the user asks to "tell me about", "describe", or "what is" a product, match that product.
-    5.  If the user is describing features unique to a product, match it.
+    3.  If the input is in Arabic, translate it to English to match the product list (e.g. "بنطال يوغا" -> "Yoga Pants").
+    4.  If no exact match, look for semantic matches (e.g., "blue shoes" matches "Men's Blue Running Shoes").
+    5.  If the user asks to "tell me about", "describe", or "what is" a product, match that product.
+    6.  If the user is describing features unique to a product, match it.
 
     Return a JSON object:
     {
@@ -187,6 +201,8 @@ export const prompts = {
     - Email address
     - Physical address
     - Phone number
+    
+    NOTE: Handle Arabic input.
     
     Return a JSON object with ONLY the fields that were mentioned:
     {
@@ -223,6 +239,8 @@ export const prompts = {
     - CVV (3-4 digit code)
     - Cardholder name
 
+    NOTE: Handle Arabic input.
+
     Return a JSON object with the extracted information, or an empty object if no information is being updated.
     Format:
     {
@@ -255,6 +273,8 @@ export const prompts = {
     - "Complete order"
     - "Finalize purchase"
     
+    NOTE: The user may speak in Arabic (e.g. "أكمل الطلب"). Treat these as positive matches.
+
     Return ONLY "yes" if the user wants to complete their purchase/place their order, or "no" if not.
     Do not include any other text in your response.
   `,
@@ -265,6 +285,8 @@ export const prompts = {
     
     User command: "{transcript}"
     
+    NOTE: The user may speak in Arabic (e.g. "رجوع" -> back, "الرئيسية" -> home).
+
     Return a JSON object with the following structure:
     {
       "action": "back" | "home" | "none"
@@ -308,6 +330,7 @@ export const prompts = {
     - Price Range: Any range between 0-200 dollars
     
     DETAILED DETECTION INSTRUCTIONS:
+    0. MULTILINGUAL: Support Arabic removal commands. Translate intent to English.
     1. Look for phrases explicitly indicating filter removal:
        - "remove/delete/take off/get rid of/eliminate/take away"
        - "I don't want to see/show ... anymore"
@@ -421,6 +444,8 @@ export const prompts = {
     - "My credit card is 1234..." → "user_info" (providing payment info)
     - "Tell me about the black running shoes" → "product_navigation"
     
+    NOTE: Input may be in Arabic. Classify the intent regardless of language.
+
     Return ONLY the intent category name as a string, nothing else. 
     Examples: "navigation", "apply_filter", "category_navigation", etc.
     DO NOT include explanations, JSON formatting, or any other text.

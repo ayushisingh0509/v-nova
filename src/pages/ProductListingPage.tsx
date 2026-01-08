@@ -263,7 +263,7 @@ const ProductListingPage = () => {
                           htmlFor={`brand-${brand}`}
                           className="ml-2 text-sm cursor-pointer"
                         >
-                          {t('brand.' + brand)}
+                          {t(brand)}
                         </label>
                       </div>
                     ))}
@@ -422,7 +422,7 @@ const ProductListingPage = () => {
                               htmlFor={`mobile-brand-${brand}`}
                               className="ml-2 text-sm cursor-pointer"
                             >
-                              {t('brand.' + brand)}
+                              {t(brand)}
                             </label>
                           </div>
                         ))}
@@ -594,7 +594,7 @@ const ProductListingPage = () => {
                 ))}
                 {selectedFilters.brands.map((brand) => (
                   <Badge key={`brand-${brand}`} variant="secondary" className="px-3 py-1">
-                    <span className="mr-1">{t('brand.' + brand)}</span>
+                    <span className="mr-1">{t(brand)}</span>
                     <X
                       className="h-3 w-3 cursor-pointer"
                       onClick={() => toggleFilter("brands", brand)}

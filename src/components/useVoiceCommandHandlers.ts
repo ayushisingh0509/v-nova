@@ -94,7 +94,14 @@ export const useVoiceCommandHandlers = ({ onRequestRestart }: UseVoiceCommandHan
     const classifyPrimaryIntent = async (transcript: string): Promise<string> => {
         // Manual overrides for critical path commands to ensure reliability
         const lower = transcript.toLowerCase();
-        if (lower.includes("checkout") || lower.includes("place order") || lower.includes("complete purchase") || lower.includes("buy now")) {
+        if (lower.includes("checkout") ||
+            lower.includes("place order") ||
+            lower.includes("complete purchase") ||
+            lower.includes("buy now") ||
+            lower.includes("الدفع") || // Arabic: Payment
+            lower.includes("اكمال الطلب") || // Arabic: Complete order
+            lower.includes("شراء") // Arabic: Buy
+        ) {
             return "order_completion";
         }
 
@@ -229,7 +236,9 @@ export const useVoiceCommandHandlers = ({ onRequestRestart }: UseVoiceCommandHan
             if (parsed.productName) {
                 const targetProduct = products.find(p =>
                     p.name.toLowerCase().includes(parsed.productName.toLowerCase()) ||
-                    parsed.productName.toLowerCase().includes(p.name.toLowerCase())
+                    parsed.productName.toLowerCase().includes(p.name.toLowerCase()) ||
+                    (p.nameAr && p.nameAr.toLowerCase().includes(parsed.productName.toLowerCase())) ||
+                    (p.nameAr && parsed.productName.toLowerCase().includes(p.nameAr.toLowerCase()))
                 );
                 if (targetProduct) currentProduct = targetProduct;
             }
@@ -411,6 +420,25 @@ export const useVoiceCommandHandlers = ({ onRequestRestart }: UseVoiceCommandHan
 
     const handleOrderCompletion = async (transcript: string) => {
         try {
+            // Manual check for speed and reliability, bypassing Gemini for obvious commands
+            const lower = transcript.toLowerCase();
+            if (lower.includes("checkout") ||
+                lower.includes("place order") ||
+                lower.includes("pay") ||
+                lower.includes("buy") ||
+                lower.includes("الدفع") ||
+                lower.includes("شراء")
+            ) {
+                if (location.pathname === "/payment") {
+                    window.dispatchEvent(new CustomEvent("trigger-order-completion"));
+                    logAction("Submitting order");
+                } else {
+                    await navigate("/payment");
+                    logAction("Proceeding to payment");
+                }
+                return true;
+            }
+
             const prompt = prompts.orderCompletion.replace("{transcript}", transcript);
             const response = (await runGeminiText(prompt)).trim().toLowerCase();
 
