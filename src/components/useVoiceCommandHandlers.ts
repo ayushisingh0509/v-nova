@@ -17,7 +17,7 @@ if (!geminiApiKey) {
 }
 const genAI = new GoogleGenerativeAI(geminiApiKey ?? "");
 
-const GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash"];
+const GEMINI_MODELS = ["gemini-2.5-pro", "gemini-2.5-flash"];
 
 const callGeminiWithFallback = async <T,>(
     action: (model: ReturnType<typeof genAI.getGenerativeModel>) => Promise<T>
@@ -43,6 +43,14 @@ const runGeminiText = async (prompt: string): Promise<string> => {
         return result.response.text();
     });
     return responseText;
+};
+
+const extractJson = (text: string): string => {
+    // Try to find JSON object or array
+    const jsonMatch = text.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
+    if (jsonMatch) return jsonMatch[0];
+    // Fallback to simple cleanup if no clear JSON structure found (though match is usually best)
+    return text.replace(/```json|```/g, "").trim();
 };
 
 interface UseVoiceCommandHandlersProps {
@@ -119,7 +127,7 @@ export const useVoiceCommandHandlers = ({ onRequestRestart }: UseVoiceCommandHan
         try {
             const prompt = prompts.navigationCommand.replace("{transcript}", transcript);
             const responseText = await runGeminiText(prompt);
-            const cleaned = responseText.replace(/```json|```/g, "").trim();
+            const cleaned = extractJson(responseText);
             const response = JSON.parse(cleaned);
 
             if (response.action === "back") {
@@ -158,7 +166,7 @@ export const useVoiceCommandHandlers = ({ onRequestRestart }: UseVoiceCommandHan
         try {
             const prompt = prompts.categoryNavigation.replace("{transcript}", transcript);
             const responseText = await runGeminiText(prompt);
-            const cleaned = responseText.replace(/```json|```/g, "").trim();
+            const cleaned = extractJson(responseText);
             const parsed = JSON.parse(cleaned);
             const target = parsed.target?.toLowerCase();
 
@@ -196,7 +204,7 @@ export const useVoiceCommandHandlers = ({ onRequestRestart }: UseVoiceCommandHan
                 .replace("{productList}", productListText);
 
             const responseText = await runGeminiText(prompt);
-            const cleaned = responseText.replace(/```json|```/g, "").trim();
+            const cleaned = extractJson(responseText);
             const parsed = JSON.parse(cleaned);
 
             if (parsed.productId) {
@@ -227,7 +235,7 @@ export const useVoiceCommandHandlers = ({ onRequestRestart }: UseVoiceCommandHan
                 .replace("{transcript}", transcript);
 
             const responseText = await runGeminiText(prompt);
-            const cleaned = responseText.replace(/```json|```/g, "").trim();
+            const cleaned = extractJson(responseText);
             const parsed = JSON.parse(cleaned);
 
             if (parsed.action === "none") return false;
@@ -301,7 +309,7 @@ export const useVoiceCommandHandlers = ({ onRequestRestart }: UseVoiceCommandHan
                 .replace("{categories}", filterOptions.subCategories.join(", "));
 
             const responseText = await runGeminiText(prompt);
-            const cleaned = responseText.replace(/```json|```/g, "").trim();
+            const cleaned = extractJson(responseText);
             const parsedFilters = JSON.parse(cleaned);
 
             const normalizedFilters: Partial<FilterState> = {};
@@ -360,7 +368,7 @@ export const useVoiceCommandHandlers = ({ onRequestRestart }: UseVoiceCommandHan
                 .replace("{categories}", filterOptions.subCategories.join(", "));
 
             const responseText = await runGeminiText(prompt);
-            const cleaned = responseText.replace(/```json|```/g, "").trim();
+            const cleaned = extractJson(responseText);
             const parsed = JSON.parse(cleaned);
 
             if (parsed.isRemoveFilter) {
@@ -396,7 +404,7 @@ export const useVoiceCommandHandlers = ({ onRequestRestart }: UseVoiceCommandHan
         try {
             const prompt = prompts.userInfoUpdate.replace("{transcript}", transcript);
             const responseText = await runGeminiText(prompt);
-            const cleaned = responseText.replace(/```json|```/g, "").trim();
+            const cleaned = extractJson(responseText);
             const response = JSON.parse(cleaned);
 
             if (response.isUserInfoUpdate) {

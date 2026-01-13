@@ -5,7 +5,7 @@ import { useVoiceCommandHandlers } from "./useVoiceCommandHandlers";
 import { useLanguage } from "@/context/LanguageContext";
 
 export const VapiAssistant = () => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [isSessionActive, setIsSessionActive] = useState(false);
   const [isSpeechActive, setIsSpeechActive] = useState(false);
   const [position, setPosition] = useState({ x: 24, y: typeof window !== 'undefined' ? window.innerHeight - 80 : 0 });
@@ -16,6 +16,12 @@ export const VapiAssistant = () => {
 
   const vapiRef = useRef<any>(null);
   const { processVoiceCommand } = useVoiceCommandHandlers();
+
+  const getAssistantId = () => {
+    const id = import.meta.env.VITE_VAPI_ASSISTANT_ID_AR;
+    console.log("VapiAssistant: Using Arabic Assistant ID:", id);
+    return id;
+  };
 
   // Use a ref to always keep the latest version of processVoiceCommand
   // preventing stale closures in the Vapi event listener
@@ -29,11 +35,10 @@ export const VapiAssistant = () => {
     // Initialize position on client-side mount
     setPosition({ x: 24, y: window.innerHeight - 80 });
 
-    const ASSISTANT_ID = import.meta.env.VITE_VAPI_ASSISTANT_ID;
-    const API_KEY = import.meta.env.VITE_VAPI_API_KEY;
+    const API_KEY = import.meta.env.VITE_VAPI_API_KEY_AR;
 
-    if (!ASSISTANT_ID || !API_KEY) {
-      console.error("Missing Vapi keys");
+    if (!API_KEY) {
+      console.error("Missing Vapi API Key (VITE_VAPI_API_KEY_AR)");
       return;
     }
 
@@ -59,6 +64,12 @@ export const VapiAssistant = () => {
       setIsSpeechActive(false);
     });
 
+    vapi.on("error", (error: any) => {
+      console.error("Vapi Error:", error);
+      setIsSessionActive(false);
+      setIsSpeechActive(false);
+    });
+
     // Listen for transcripts instead of tool calls
     vapi.on("message", async (message: any) => {
       if (message.type === "transcript" && message.transcriptType === "final") {
@@ -73,9 +84,13 @@ export const VapiAssistant = () => {
     });
 
     // Auto-start the assistant
-    vapi.start(ASSISTANT_ID).catch((error: any) => {
-      console.error("Failed to auto-start Vapi:", error);
-    });
+    const assistantId = getAssistantId();
+    if (assistantId) {
+      vapi.start(assistantId).catch((error: any) => {
+        console.error("Failed to auto-start Vapi:", error);
+      });
+    }
+
 
     return () => {
       vapi.stop();
@@ -157,9 +172,16 @@ export const VapiAssistant = () => {
     if (isSessionActive) {
       vapi.stop();
     } else {
-      const ASSISTANT_ID = import.meta.env.VITE_VAPI_ASSISTANT_ID;
+      const assistantId = getAssistantId();
+      if (!assistantId) {
+        console.error("No Arabic Assistant ID found (VITE_VAPI_ASSISTANT_ID_AR)");
+        return;
+      }
       // Start WITHOUT tool definitions, just plain Vapi for STT
-      vapi.start(ASSISTANT_ID);
+      vapi.start(assistantId).catch((err: any) => {
+        console.error("Failed to start Vapi session:", err);
+        setIsSessionActive(false);
+      });
     }
   };
 
@@ -231,6 +253,10 @@ export const VapiAssistant = () => {
       `,
         }}
       />
+      {/* Debug Info */}
+      <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-[10px] text-gray-500 whitespace-nowrap">
+        ID: ...{getAssistantId()?.slice(-4) || 'None'}
+      </div>
     </div>
   );
 };
