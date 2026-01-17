@@ -43,12 +43,14 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   }, [items]);
 
   const addItem = (item: CartItem) => {
+    console.log("[CartContext] Adding item:", item);
     setItems((prevItems) => {
       const existingItemIndex = prevItems.findIndex(
         (i) => i.id === item.id && i.size === item.size && i.color === item.color
       );
 
       if (existingItemIndex > -1) {
+        console.log("[CartContext] Updating existing item quantity");
         // If item exists, increment quantity safely (create new object for the updated item)
         const updatedItems = [...prevItems];
         updatedItems[existingItemIndex] = {
@@ -57,6 +59,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
         };
         return updatedItems;
       } else {
+        console.log("[CartContext] Adding new item to list");
         // If item doesn't exist, add it
         return [...prevItems, item];
       }

@@ -1,10 +1,9 @@
-
-import { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import Vapi from "@vapi-ai/web";
 import { useVoiceCommandHandlers } from "./useVoiceCommandHandlers";
 import { useLanguage } from "@/context/LanguageContext";
 
-export const VapiAssistant = () => {
+const VapiAssistantComponent = () => {
   const { t, language } = useLanguage();
   const [isSessionActive, setIsSessionActive] = useState(false);
   const [isSpeechActive, setIsSpeechActive] = useState(false);
@@ -31,9 +30,13 @@ export const VapiAssistant = () => {
     processVoiceCommandRef.current = processVoiceCommand;
   }, [processVoiceCommand]);
 
+  // Debugging Instance ID
+  const instanceId = useRef(Math.random().toString(36).substring(7)).current;
+
   useEffect(() => {
     // Initialize position on client-side mount
     setPosition({ x: 24, y: window.innerHeight - 80 });
+    console.log(`[VapiAssistant ${instanceId}] MOUNTED - Path: ${window.location.pathname}`);
 
     const API_KEY = import.meta.env.VITE_VAPI_API_KEY_AR;
 
@@ -46,12 +49,12 @@ export const VapiAssistant = () => {
     vapiRef.current = vapi;
 
     vapi.on("call-start", () => {
-      console.log("Vapi call started");
+      console.log(`[VapiAssistant ${instanceId}] Call started`);
       setIsSessionActive(true);
     });
 
     vapi.on("call-end", () => {
-      console.log("Vapi call ended");
+      console.log(`[VapiAssistant ${instanceId}] Call ended`);
       setIsSessionActive(false);
       setIsSpeechActive(false);
     });
@@ -65,7 +68,7 @@ export const VapiAssistant = () => {
     });
 
     vapi.on("error", (error: any) => {
-      console.error("Vapi Error:", error);
+      console.error(`[VapiAssistant ${instanceId}] Vapi Error:`, error);
       setIsSessionActive(false);
       setIsSpeechActive(false);
     });
@@ -74,7 +77,7 @@ export const VapiAssistant = () => {
     vapi.on("message", async (message: any) => {
       if (message.type === "transcript" && message.transcriptType === "final") {
         const transcriptText = message.transcript;
-        console.log("Final transcript received:", transcriptText);
+        console.log(`[VapiAssistant ${instanceId}] Final transcript:`, transcriptText);
 
         // Pass the transcript to our restored client-side Gemini logic
         if (transcriptText) {
@@ -86,13 +89,15 @@ export const VapiAssistant = () => {
     // Auto-start the assistant
     const assistantId = getAssistantId();
     if (assistantId) {
+      console.log(`[VapiAssistant ${instanceId}] Auto-starting session...`);
       vapi.start(assistantId).catch((error: any) => {
-        console.error("Failed to auto-start Vapi:", error);
+        console.error(`[VapiAssistant ${instanceId}] Failed to auto-start Vapi:`, error);
       });
     }
 
 
     return () => {
+      console.log(`[VapiAssistant ${instanceId}] UNMOUNTED - Path: ${window.location.pathname}`);
       vapi.stop();
     };
   }, []);
@@ -260,3 +265,5 @@ export const VapiAssistant = () => {
     </div>
   );
 };
+
+export const VapiAssistant = React.memo(VapiAssistantComponent);

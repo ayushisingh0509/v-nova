@@ -62,8 +62,9 @@ export const useVoiceCommandHandlers = ({ onRequestRestart }: UseVoiceCommandHan
     const { updateFilters, clearFilters, removeFilter } = useFilters();
     const { setSelectedSize, setQuantity, selectedSize, quantity } = useProduct();
     const { items, totalItems, subtotal, addItem } = useCart();
-    const location = useLocation();
-    const params = useParams();
+    // Removed useLocation and useParams to prevent VapiAssistant re-renders on navigation
+    // const location = useLocation(); 
+    // const params = useParams();
     const navigate = useNavigate();
 
     const [lastAction, setLastAction] = useState<string>("");
@@ -81,8 +82,13 @@ export const useVoiceCommandHandlers = ({ onRequestRestart }: UseVoiceCommandHan
     };
 
     const getCurrentPageState = () => {
-        const currentPath = location.pathname;
-        const currentProductId = params.id;
+        const currentPath = window.location.pathname;
+        // Manual params parsing for /product/:id
+        let currentProductId = null;
+        if (currentPath.startsWith("/product/")) {
+            currentProductId = currentPath.split("/product/")[1];
+        }
+
         let currentProduct = null;
         if (currentProductId) {
             currentProduct = products.find(p => p.id === currentProductId);
@@ -229,6 +235,8 @@ export const useVoiceCommandHandlers = ({ onRequestRestart }: UseVoiceCommandHan
             let productName = currentProduct ? currentProduct.name : "current product";
             let productSizes = currentProduct ? currentProduct.sizes.join(", ") : "";
 
+            console.log("[Voice Debug] Product Action Context:", { productName, productSizes, transcript });
+
             const prompt = prompts.productAction
                 .replace("{productName}", productName)
                 .replace("{sizes}", productSizes)
@@ -238,7 +246,12 @@ export const useVoiceCommandHandlers = ({ onRequestRestart }: UseVoiceCommandHan
             const cleaned = extractJson(responseText);
             const parsed = JSON.parse(cleaned);
 
-            if (parsed.action === "none") return false;
+            console.log("[Voice Debug] Parsed Product Action:", parsed);
+
+            if (parsed.action === "none") {
+                console.log("[Voice Debug] Action is 'none'");
+                return false;
+            }
 
             // Context switch check
             if (parsed.productName) {
@@ -248,10 +261,16 @@ export const useVoiceCommandHandlers = ({ onRequestRestart }: UseVoiceCommandHan
                     (p.nameAr && p.nameAr.toLowerCase().includes(parsed.productName.toLowerCase())) ||
                     (p.nameAr && parsed.productName.toLowerCase().includes(p.nameAr.toLowerCase()))
                 );
-                if (targetProduct) currentProduct = targetProduct;
+                if (targetProduct) {
+                    console.log("[Voice Debug] Switching context to product:", targetProduct.name);
+                    currentProduct = targetProduct;
+                }
             }
 
-            if (!currentProduct) return false;
+            if (!currentProduct) {
+                console.log("[Voice Debug] No current product identified.");
+                return false;
+            }
 
             if (parsed.action === "size" && parsed.size) {
                 const matchedSize = currentProduct.sizes.find(s => s.toLowerCase() === parsed.size.toLowerCase());
@@ -260,6 +279,7 @@ export const useVoiceCommandHandlers = ({ onRequestRestart }: UseVoiceCommandHan
                     logAction(`Size set to ${matchedSize}`);
                     return true;
                 }
+                console.log("[Voice Debug] Size mismatch:", parsed.size, "Available:", currentProduct.sizes);
             }
 
             if (parsed.action === "quantity" && parsed.quantity) {
@@ -269,11 +289,16 @@ export const useVoiceCommandHandlers = ({ onRequestRestart }: UseVoiceCommandHan
             }
 
             if (parsed.action === "addToCart") {
+                console.log("[Voice Debug] Attempting Add to Cart...");
                 let sizeToAdd = selectedSize;
                 // Default size logic if needed
-                if (!sizeToAdd && currentProduct.sizes.length > 0) sizeToAdd = currentProduct.sizes[0];
+                if (!sizeToAdd && currentProduct.sizes.length > 0) {
+                    sizeToAdd = currentProduct.sizes[0];
+                    console.log("[Voice Debug] Auto-selected first size:", sizeToAdd);
+                }
 
                 if (sizeToAdd) {
+                    console.log("[Voice Debug] Adding to context cart:", currentProduct.name, sizeToAdd);
                     addItem({
                         id: currentProduct.id,
                         name: currentProduct.name,
@@ -285,6 +310,7 @@ export const useVoiceCommandHandlers = ({ onRequestRestart }: UseVoiceCommandHan
                     logAction(`Added ${quantity} ${currentProduct.name} to cart`);
                     return true;
                 } else {
+                    console.log("[Voice Debug] Size required but missing.");
                     logAction("Please select a size first");
                     return true;
                 }
@@ -292,7 +318,7 @@ export const useVoiceCommandHandlers = ({ onRequestRestart }: UseVoiceCommandHan
 
             return true;
         } catch (error) {
-            console.error("Product action error:", error);
+            console.error("[Voice Debug] Product action error:", error);
             return false;
         }
     };
@@ -437,7 +463,7 @@ export const useVoiceCommandHandlers = ({ onRequestRestart }: UseVoiceCommandHan
                 lower.includes("الدفع") ||
                 lower.includes("شراء")
             ) {
-                if (location.pathname === "/payment") {
+                if (window.location.pathname === "/payment") {
                     window.dispatchEvent(new CustomEvent("trigger-order-completion"));
                     logAction("Submitting order");
                 } else {
@@ -451,7 +477,7 @@ export const useVoiceCommandHandlers = ({ onRequestRestart }: UseVoiceCommandHan
             const response = (await runGeminiText(prompt)).trim().toLowerCase();
 
             if (response === "yes") {
-                if (location.pathname === "/payment") {
+                if (window.location.pathname === "/payment") {
                     window.dispatchEvent(new CustomEvent("trigger-order-completion"));
                     logAction("Submitting order");
                 } else {
@@ -469,12 +495,12 @@ export const useVoiceCommandHandlers = ({ onRequestRestart }: UseVoiceCommandHan
 
 
     const processVoiceCommand = async (transcript: string) => {
-        console.log("Processing command:", transcript);
+        console.log("%c[Voice Debug] Processing command:", "color: blue; font-weight: bold", transcript);
         logAction(`Processing: "${transcript}"`);
 
         try {
             const primaryIntent = await classifyPrimaryIntent(transcript);
-            console.log("Primary Intent:", primaryIntent);
+            console.log("%c[Voice Debug] Primary Intent:", "color: green", primaryIntent);
             logAction(`Intent: ${primaryIntent}`);
 
 
@@ -494,6 +520,7 @@ export const useVoiceCommandHandlers = ({ onRequestRestart }: UseVoiceCommandHan
                     handled = await handleProductDetailNavigation(transcript);
                     break;
                 case "product_action":
+                    console.log("[Voice Debug] Handling product action...");
                     handled = await handleProductActions(transcript);
                     break;
                 case "apply_filter":
@@ -515,8 +542,11 @@ export const useVoiceCommandHandlers = ({ onRequestRestart }: UseVoiceCommandHan
                     break;
                 default:
                     // Fallback try common ones
+                    console.log("[Voice Debug] Intent fell through, trying fallback navigation/cart");
                     handled = await handleNavigationCommand(transcript) || await handleCartNavigation(transcript);
             }
+
+            console.log(`%c[Voice Debug] Command handled: ${handled}`, handled ? "color: green" : "color: red");
 
             if (!handled) {
                 // Last ditch effort for direct matches
@@ -528,7 +558,7 @@ export const useVoiceCommandHandlers = ({ onRequestRestart }: UseVoiceCommandHan
             }
 
         } catch (error) {
-            console.error("Error processing voice command:", error);
+            console.error("[Voice Debug] Error processing voice command:", error);
             logAction("Error processing command", false);
         }
     };

@@ -76,6 +76,7 @@ export const prompts = {
     - For quantity, return the number mentioned, or null if no quantity mentioned
     - If the user wants to add to cart, set action to "addToCart"
     - If the user mentions a specific product name to add (e.g. "add the yoga mat to cart"), extract it as "productName". If in Arabic, provide the Arabic name or English translation if obvious.
+    - Treat "أضف إلى السلة" ("Add to cart"), "aduf iila sallati", or similar Arabic phrases as "addToCart".
     - If no relevant action is detected, set action to "none"
     - Return ONLY the JSON object, no other text
   `,
@@ -399,7 +400,7 @@ export const prompts = {
        Examples: "show me my cart", "view cart", "what's in my cart"
     
     5. "product_action" - User wants to interact with a current product (add to cart, change size/quantity)
-       Examples: "add to cart", "select size medium", "change quantity to 2"
+       Examples: "add to cart", "أضف إلى السلة", "select size medium", "change quantity to 2"
        NOTE: This ONLY applies when viewing a specific product detail page
     
     6. "product_navigation" - User wants to view a specific product's details OR asks for a description
