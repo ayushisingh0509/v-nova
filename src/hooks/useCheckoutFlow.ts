@@ -1,5 +1,14 @@
 import { useState, useCallback, useRef } from "react";
-import { useUserInfo } from "@/hooks/useUserInfo";
+import {
+    useUserInfo,
+    extractName,
+    extractEmail,
+    extractAddress,
+    extractPhone,
+    extractCardNumber,
+    extractExpiryDate,
+    extractCVV
+} from "@/hooks/useUserInfo";
 
 export type CheckoutStep =
     | "idle"
@@ -118,6 +127,32 @@ export const useCheckoutFlow = () => {
         return false;
     };
 
+    // Extract actual value from natural language speech using robust helpers
+    const extractValue = (step: CheckoutStep, transcript: string): string => {
+        const lower = transcript.toLowerCase();
+
+        switch (step) {
+            case "name":
+            case "cardName":
+                return extractName(transcript);
+            case "email":
+                return extractEmail(transcript);
+            case "address":
+                return extractAddress(transcript);
+            case "phone":
+                return extractPhone(transcript);
+            case "cardNumber":
+                return extractCardNumber(transcript);
+            case "expiryDate":
+                return extractExpiryDate(transcript);
+            case "cvv":
+                return extractCVV(transcript);
+            default:
+                // Basic cleanup for unknown steps
+                return transcript.trim().replace(/[.,!?;:]+$/, "");
+        }
+    };
+
     // Validate input format for each field type
     const validateInput = (step: CheckoutStep, value: string): { valid: boolean; extractedValue: string; error: string } => {
         const trimmed = value.trim();
@@ -126,17 +161,26 @@ export const useCheckoutFlow = () => {
         switch (step) {
             case "name":
             case "cardName":
-                // Must have at least 2 words (first and last name), each 2+ chars
+                // Accept single name (common in many cultures) or full name
+                // Minimum: 1 word with 2+ characters OR 2+ words
                 const nameWords = trimmed.split(/\s+/).filter(w => w.length >= 2);
-                if (nameWords.length < 2) {
+                if (nameWords.length < 1) {
                     return {
                         valid: false,
                         extractedValue: "",
-                        error: "Please say your full name with first and last name."
+                        error: "Please say your name."
+                    };
+                }
+                // If only one word, it must be at least 2 characters
+                if (nameWords.length === 1 && nameWords[0].length < 2) {
+                    return {
+                        valid: false,
+                        extractedValue: "",
+                        error: "Please say your full name."
                     };
                 }
                 // Check it's not a question or command
-                if (lowerValue.includes("what") || lowerValue.includes("name") || lowerValue.includes("card")) {
+                if (lowerValue.includes("what") || lowerValue.includes("card") || lowerValue.includes("can") || lowerValue.includes("how") || lowerValue.includes("pay")) {
                     return { valid: false, extractedValue: "", error: "Please say only your name." };
                 }
                 return { valid: true, extractedValue: trimmed, error: "" };
@@ -147,6 +191,15 @@ export const useCheckoutFlow = () => {
                     .replace(/\s+at\s+/gi, "@")
                     .replace(/\s+dot\s+/gi, ".")
                     .replace(/\s/g, "");
+
+                // If no @ found but contains "at" and "dot", try alternate extraction
+                if (!emailValue.includes("@")) {
+                    // Try to find email pattern in the original trimmed value
+                    const emailMatch = trimmed.match(/([a-zA-Z0-9._+-]+)\s*(?:at|@)\s*([a-zA-Z0-9.-]+)\s*(?:dot|\.)\s*([a-zA-Z]+)/i);
+                    if (emailMatch) {
+                        emailValue = `${emailMatch[1].replace(/\s/g, '')}@${emailMatch[2].replace(/\s/g, '')}.${emailMatch[3].replace(/\s/g, '')}`;
+                    }
+                }
 
                 // Must have @ and . and basic email format
                 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -160,13 +213,13 @@ export const useCheckoutFlow = () => {
                 return { valid: true, extractedValue: emailValue, error: "" };
 
             case "address":
-                // Must have at least 5 words (reasonable address)
+                // Must have at least 3 words (street/number + city OR street + building + city)
                 const addressWords = trimmed.split(/\s+/).filter(w => w.length > 0);
-                if (addressWords.length < 5) {
+                if (addressWords.length < 3) {
                     return {
                         valid: false,
                         extractedValue: "",
-                        error: "Please say your complete shipping address including street, city, and zip code."
+                        error: "Please say your complete shipping address including street and city."
                     };
                 }
                 // Check it's not a question
@@ -289,8 +342,12 @@ export const useCheckoutFlow = () => {
             return { success: false, nextPrompt: "" };
         }
 
+        // Extract the actual value from natural language
+        const extractedTranscript = extractValue(currentStep, transcript);
+        console.log("[CheckoutFlow] Extracted value:", extractedTranscript, "from transcript:", transcript);
+
         // Validate the input for the current step
-        const validation = validateInput(currentStep, transcript);
+        const validation = validateInput(currentStep, extractedTranscript);
         if (!validation.valid) {
             console.log("[CheckoutFlow] Validation failed:", validation.error);
             return { success: false, nextPrompt: validation.error };
