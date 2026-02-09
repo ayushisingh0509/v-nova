@@ -120,12 +120,35 @@ export const prompts = {
     5. For price, ONLY extract if user explicitly says a number or range (e.g., "under $50", "between 50 and 100")
     6. When in doubt, DO NOT add the filter
 
+<<<<<<< Updated upstream
     VALID EXAMPLES (apply filter):
     - "show me red items" → colors: ["red"]
     - "I want men's clothing" → genders: ["men"]
     - "Nike products please" → brands: ["nike"]
     - "size medium" → sizes: ["m"]
     - "under 50 dollars" → price: [0, 50]
+=======
+    1. Look for DIRECT mentions of filter preferences. Map ONLY to the available filter values listed above.
+    2. STRICTLY IGNORE WEATHER AND LOCATION CONTEXT:
+       - If the user says "It is raining", "I am in London", "It is hot outside", DO NOT infer any filters (like waterproof, jackets, summer wear etc.).
+       - Only apply filters if the user EXPLICITLY asks for them (e.g. "Show me jackets", "I need waterproof gear").
+       - Ignore environmental descriptions unless they are direct product feature requests.
+
+    3. For gender filters, infer from contextual clues BUT ONLY map to 'men', 'women', or 'unisex' if found:
+       - "with my sister/girlfriend/mom/daughter/wife" → women
+       - "with my brother/boyfriend/dad/son/husband" → men
+       - "for her/she/woman" → women
+       - "for him/he/man" → men
+
+    4. For colors, detect preferences BUT ONLY map to the listed colors if explicitly mentioned or strongly implied by color comparisons (e.g. "like the sky" -> blue is okay, but "sunny day" -> yellow is NOT).
+
+    5. Price ranges:
+       - "affordable/cheap/budget" → [0, 50]
+       - "mid-range/moderate" → [50, 100]
+       - "premium/expensive/high-end" → [100, 200]
+
+    6. IMPORTANT: For Categories (SubCategories), ONLY apply a subcategory if it is explicitly mentioned or strongly implied by specific item types (e.g., 'mat' implies 'equipment', 'shoes' implies 'footwear'). DO NOT add 'equipment' by default or for general terms like 'gear' or 'items'.
+>>>>>>> Stashed changes
 
     INVALID EXAMPLES (DO NOT apply filter):
     - "show me something nice" → {} (no filter mentioned)
@@ -391,9 +414,15 @@ export const prompts = {
     
     10. "clear_filters" - User wants to clear all filters
         Examples: "clear all filters", "reset filters", "remove all filters"
+<<<<<<< Updated upstream
+=======
+
+    11. "switch_language" - User wants to change the application language
+        Examples: "Switch to Arabic", "Speak English", "Change language to Arabic", "تحدث بالعربية", "حول اللغة", "Can we speak in Arabic?", "I want the arabic assistant"
+>>>>>>> Stashed changes
     
-    11. "general_command" - Any other command that doesn't fit the above categories
-        Examples: miscellaneous commands that don't fit other categories
+    12. "general_command" - Any other command that doesn't fit the above categories
+        Examples: simplified general chatter, greetings that don't imply action
     
     DISAMBIGUATION RULES:
     - For combined intents (like "show me running clothes for women"), use these priorities:
@@ -418,6 +447,14 @@ export const prompts = {
     - "Add this to my cart" → "product_action" (if on product page)
     - "My credit card is 1234..." → "user_info" (providing payment info)
     - "Tell me about the black running shoes" → "product_navigation"
+<<<<<<< Updated upstream
+=======
+    - "It is raining outside" → "general_command" (Do NOT apply filters based on weather)
+    - "I am in New York" → "general_command" (Do NOT apply filters based on location)
+    - "Switch to Arabic please" → "switch_language"
+    
+    NOTE: Input may be in Arabic. Classify the intent regardless of language.
+>>>>>>> Stashed changes
 
     Return ONLY the intent category name as a string, nothing else. 
     Examples: "navigation", "apply_filter", "category_navigation", etc.
