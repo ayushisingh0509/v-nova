@@ -22,6 +22,8 @@ const VapiAssistantComponent = () => {
   const isInitialMountRef = useRef(true);
   const wasActiveRef = useRef(false);
   const hasStartedCheckoutFlowRef = useRef(false);
+  const lastSpeechEndRef = useRef<number>(0);
+  const lastAssistantMessageRef = useRef<string>("");
 
   const ASSISTANT_ID = import.meta.env.VITE_VAPI_ASSISTANT_ID;
 
@@ -143,12 +145,15 @@ const VapiAssistantComponent = () => {
       }
     });
 
+
+
     vapi.on("speech-start", () => {
       setIsSpeechActive(true);
     });
 
     vapi.on("speech-end", () => {
       setIsSpeechActive(false);
+      lastSpeechEndRef.current = Date.now();
     });
 
     vapi.on("error", (error: any) => {
@@ -194,11 +199,54 @@ const VapiAssistantComponent = () => {
       }
     });
 
-    // Listen for transcripts instead of tool calls
+    // Listen for transcripts and conversation updates
     vapi.on("message", async (message: any) => {
+      // 1. Capture Assistant's Speech Content
+      if (message.type === "conversation-update") {
+        if (message.conversation && message.conversation.length > 0) {
+          const lastMsg = message.conversation[message.conversation.length - 1];
+          // If the last message was from the assistant, store it
+          if (lastMsg.role === "assistant") {
+            const content = typeof lastMsg.content === 'string' ? lastMsg.content : "";
+            if (content) {
+              console.log(`[VapiAssistant] Assistant said: "${content.substring(0, 50)}..."`);
+              lastAssistantMessageRef.current = content;
+              lastSpeechEndRef.current = Date.now(); // Update timestamp here too for safety
+            }
+          }
+        }
+      }
+
+      // 2. Process Transcripts
       if (message.type === "transcript" && message.transcriptType === "final") {
         const transcriptText = message.transcript;
         console.log(`[VapiAssistant ${instanceId}] Final transcript:`, transcriptText);
+
+        // Global Echo Suppression
+        // Ignore if assistant is currently speaking
+        if (isSpeechActive) {
+          console.log("[VapiAssistant] Ignoring transcript - Assistant is speaking");
+          return;
+        }
+
+        // Time-based suppression: increased to 4s
+        const timeSinceSpeech = Date.now() - lastSpeechEndRef.current;
+        if (timeSinceSpeech < 2000) {
+          console.log(`[VapiAssistant] Ignoring transcript - Assistant spoke recently (${timeSinceSpeech}ms ago)`);
+          return;
+        }
+
+        // Content-based suppression: Check if transcript matches what assistant just said
+        if (lastAssistantMessageRef.current) {
+          const cleanTranscript = transcriptText.toLowerCase().trim().replace(/[^a-z0-9]/g, "");
+          const cleanAssistant = lastAssistantMessageRef.current.toLowerCase().trim().replace(/[^a-z0-9]/g, "");
+
+          // Check for significant overlap
+          if (cleanAssistant.length > 5 && (cleanAssistant.includes(cleanTranscript) || cleanTranscript.includes(cleanAssistant))) {
+            console.log(`[VapiAssistant] Ignoring transcript - Matched assistant's last message`);
+            return;
+          }
+        }
 
         // Pass the transcript to our client-side Gemini logic
         if (transcriptText) {

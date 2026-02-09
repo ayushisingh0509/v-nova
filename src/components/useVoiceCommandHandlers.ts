@@ -8,6 +8,7 @@ import { useCart } from "@/context/CartContext";
 import { useNavigationHandler } from "@/hooks/voice-intents/useNavigationHandler";
 import { useProductHandler } from "@/hooks/voice-intents/useProductHandler";
 import { useFilterHandler } from "@/hooks/voice-intents/useFilterHandler";
+import { useCartHandler } from "@/hooks/voice-intents/useCartHandler";
 import { useCheckoutFlow } from "@/hooks/useCheckoutFlow";
 
 // Initializing Gemini
@@ -80,10 +81,14 @@ export const useVoiceCommandHandlers = ({ onRequestRestart }: UseVoiceCommandHan
     const navigationHandler = useNavigationHandler({ runGeminiText, extractJson, logAction });
     const productHandler = useProductHandler({ runGeminiText, extractJson, logAction });
     const filterHandler = useFilterHandler({ runGeminiText, extractJson, logAction });
+    const cartHandler = useCartHandler({ runGeminiText, extractJson, logAction });
 
+    // Checkout flow for guided payment collection
     // Checkout flow for guided payment collection
     const checkoutFlow = useCheckoutFlow();
     const speakCallbackRef = useRef<((text: string) => void) | null>(null);
+    const lastSpokenTextRef = useRef<string>("");
+    const lastSpeakTimeRef = useRef<number>(0);
 
     // Register speak callback for guided flow
     const registerSpeakCallback = useCallback((callback: (text: string) => void) => {
@@ -93,6 +98,8 @@ export const useVoiceCommandHandlers = ({ onRequestRestart }: UseVoiceCommandHan
     const speak = useCallback((text: string) => {
         if (speakCallbackRef.current) {
             speakCallbackRef.current(text);
+            lastSpokenTextRef.current = text.toLowerCase().replace(/[^a-z0-9]/g, "");
+            lastSpeakTimeRef.current = Date.now();
         }
         logAction(text);
     }, [logAction]);
@@ -185,13 +192,67 @@ export const useVoiceCommandHandlers = ({ onRequestRestart }: UseVoiceCommandHan
         }
     };
 
+    const handleReadScreen = async () => {
+        try {
+            const info = getUserInfo();
+            const filledFields = Object.entries(info)
+                .filter(([_, value]) => value && value.trim() !== "")
+                .map(([key, value]) => {
+                    // Format key for better speech
+                    const readableKey = key.replace(/([A-Z])/g, " $1").toLowerCase();
+                    return `${readableKey} is ${value}`;
+                });
+
+            if (filledFields.length === 0) {
+                speak("I don't have any information saved yet.");
+                logAction("Checked screen info (empty)");
+                return true;
+            }
+
+            const response = "Here is the information I have: " + filledFields.join(". ");
+            speak(response);
+            logAction("Read screen info");
+            return true;
+        } catch (error) {
+            console.error("Error reading screen:", error);
+            return false;
+        }
+    };
+
     const processVoiceCommand = async (transcript: string) => {
         console.log("%c[Voice Debug] Processing command:", "color: blue; font-weight: bold", transcript);
 
         // Ignore very short transcripts (noise/false positives)
-        if (!transcript || transcript.length < 5) {
+        if (!transcript || transcript.length < 2) {
             console.log("[Voice Debug] Transcript too short, ignoring.");
             return;
+        }
+
+        // Echo suppression: Check if the transcript matches what the assistant just apologized or said
+        const normalizedTranscript = transcript.toLowerCase().replace(/[^a-z0-9]/g, "");
+        const normalizedLastSpoken = lastSpokenTextRef.current.toLowerCase().replace(/[^a-z0-9]/g, "");
+        const timeSinceSpeak = Date.now() - lastSpeakTimeRef.current;
+
+        // Only check for echo if within 8 seconds of speaking
+        if (timeSinceSpeak < 8000 && normalizedLastSpoken.length > 0) {
+            // 1. Exact match (ignoring punctuation/case)
+            if (normalizedTranscript === normalizedLastSpoken) {
+                console.log("[Voice Debug] Exact echo detected, ignoring.");
+                return;
+            }
+
+            // 2. Transcript contains the full last spoken phrase (Echo + potential noise)
+            if (normalizedLastSpoken.length > 5 && normalizedTranscript.includes(normalizedLastSpoken)) {
+                console.log("[Voice Debug] Transcript contains last spoken text, ignoring.");
+                return;
+            }
+
+            // 3. Last spoken contains the transcript (Partial echo)
+            // CRITICAL: Only if transcript is long enough to be unique, otherwise "Yes" matches "Yes or No"
+            if (normalizedTranscript.length > 10 && normalizedLastSpoken.includes(normalizedTranscript)) {
+                console.log("[Voice Debug] Partial echo detected (significant length), ignoring.");
+                return;
+            }
         }
 
         // If checkout flow is active, route to it first
@@ -250,6 +311,12 @@ export const useVoiceCommandHandlers = ({ onRequestRestart }: UseVoiceCommandHan
                     break;
                 case "order_completion":
                     handled = await handleOrderCompletion(transcript);
+                    break;
+                case "cart_update":
+                    handled = await cartHandler.handleCartUpdate(transcript);
+                    break;
+                case "read_screen":
+                    handled = await handleReadScreen();
                     break;
                 default:
                     // Fallback try common ones

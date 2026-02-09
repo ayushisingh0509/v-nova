@@ -71,7 +71,7 @@ export const prompts = {
     - If the user wants to add to cart, set action to "addToCart"
     - If no relevant action is detected, set action to "none"
     - Return ONLY the JSON object, no other text
-  `,
+    `,
 
   cartNavigation: `
     You are a shopping assistant for an e-commerce website.
@@ -92,6 +92,37 @@ export const prompts = {
 
     Return ONLY "yes" if the user wants to view their cart, or "no" if not.
     Do not include any other text in your response.
+  `,
+
+  cartUpdate: `
+    You are a shopping assistant that helps users update their cart.
+    Analyze this voice command: "{transcript}"
+
+    Current Cart Items:
+    {cartItems}
+
+    Determine if the user wants to:
+    1. Remove an item
+    2. Increase quantity of an item
+    3. Decrease quantity of an item
+    4. Set quantity of an item to a specific number
+
+    Return a JSON object:
+    {
+      "action": "remove" | "increase" | "decrease" | "set_quantity" | "none",
+      "targetItem": "name of the item to update" | null,
+      "quantity": number | null
+    }
+
+    INSTRUCTIONS:
+    - Match "targetItem" to one of the Current Cart Items if possible, or use the name the user said.
+    - If user says "remove the shoes", action is "remove".
+    - If user says "add another one", action is "increase", quantity is 1 (unless specified otherwise).
+    - If user says "remove one", action is "decrease", quantity is 1.
+    - If user says "change quantity to 3", action is "set_quantity", quantity is 3.
+    - If user says "I don't want this anymore" (and context implies a specific item), action is "remove".
+
+    Return ONLY the JSON object.
   `,
 
   filterCommand: `
@@ -120,14 +151,13 @@ export const prompts = {
     5. For price, ONLY extract if user explicitly says a number or range (e.g., "under $50", "between 50 and 100")
     6. When in doubt, DO NOT add the filter
 
-<<<<<<< Updated upstream
     VALID EXAMPLES (apply filter):
     - "show me red items" → colors: ["red"]
     - "I want men's clothing" → genders: ["men"]
     - "Nike products please" → brands: ["nike"]
     - "size medium" → sizes: ["m"]
     - "under 50 dollars" → price: [0, 50]
-=======
+
     1. Look for DIRECT mentions of filter preferences. Map ONLY to the available filter values listed above.
     2. STRICTLY IGNORE WEATHER AND LOCATION CONTEXT:
        - If the user says "It is raining", "I am in London", "It is hot outside", DO NOT infer any filters (like waterproof, jackets, summer wear etc.).
@@ -148,7 +178,6 @@ export const prompts = {
        - "premium/expensive/high-end" → [100, 200]
 
     6. IMPORTANT: For Categories (SubCategories), ONLY apply a subcategory if it is explicitly mentioned or strongly implied by specific item types (e.g., 'mat' implies 'equipment', 'shoes' implies 'footwear'). DO NOT add 'equipment' by default or for general terms like 'gear' or 'items'.
->>>>>>> Stashed changes
 
     INVALID EXAMPLES (DO NOT apply filter):
     - "show me something nice" → {} (no filter mentioned)
@@ -188,6 +217,9 @@ export const prompts = {
     3.  If no exact match, look for semantic matches (e.g., "blue shoes" matches "Men's Blue Running Shoes").
     4.  If the user asks to "tell me about", "describe", or "what is" a product, match that product.
     5.  If the user is describing features unique to a product, match it.
+    6.  CRITICAL: Do NOT match if the user is just saying a category name (like "running") without a specific product context.
+    7.  CRITICAL: Only match if the user EXPLICITLY indicates they want to see/view/buy/know about that specific item. If the user just mentions a product name in passing or as part of a sentence like "I like the Breeze Running Jacket", DO NOT navigate unless they ask to go there.
+    8.  If the user says "Show me running shoes", return null (this is a category, not a specific product).
 
     Return a JSON object:
     {
@@ -414,14 +446,17 @@ export const prompts = {
     
     10. "clear_filters" - User wants to clear all filters
         Examples: "clear all filters", "reset filters", "remove all filters"
-<<<<<<< Updated upstream
-=======
 
-    11. "switch_language" - User wants to change the application language
+    11. "cart_update" - User wants to update items in their cart (remove, increase, decrease)
+        Examples: "remove the shoes", "add one more", "delete this item", "increase quantity of yoga mat", "remove red shirt"
+
+    13. "switch_language" - User wants to change the application language
         Examples: "Switch to Arabic", "Speak English", "Change language to Arabic", "تحدث بالعربية", "حول اللغة", "Can we speak in Arabic?", "I want the arabic assistant"
->>>>>>> Stashed changes
     
-    12. "general_command" - Any other command that doesn't fit the above categories
+    14. "read_screen" - User wants to know what information is currently filled in the checkout form/on the screen
+        Examples: "read the screen", "what details do you have?", "check my info", "what did I enter?", "read back my details"
+
+    15. "general_command" - Any other command that doesn't fit the above categories
         Examples: simplified general chatter, greetings that don't imply action
     
     DISAMBIGUATION RULES:
@@ -430,6 +465,9 @@ export const prompts = {
       2. If it mentions removing specific filters → "remove_filter"
       3. If it mentions applying new filters → "apply_filter"
     
+    - "read_screen" - User wants to know what information is currently filled in the checkout form/on the screen.
+      Examples: "read the screen", "what details do you have?", "check my info", "what did I enter?", "read back my details"
+
     - For ambiguous commands like "I need a medium", determine the context:
       1. If on a product page → "product_action"
       2. Otherwise → "apply_filter"
@@ -445,16 +483,14 @@ export const prompts = {
     - "I don't want to see the red ones anymore" → "remove_filter" (removing a filter)
     - "Go back to the previous page" → "navigation" (navigating back)
     - "Add this to my cart" → "product_action" (if on product page)
+    - "Remove the shoes from my cart" → "cart_update"
     - "My credit card is 1234..." → "user_info" (providing payment info)
     - "Tell me about the black running shoes" → "product_navigation"
-<<<<<<< Updated upstream
-=======
     - "It is raining outside" → "general_command" (Do NOT apply filters based on weather)
     - "I am in New York" → "general_command" (Do NOT apply filters based on location)
     - "Switch to Arabic please" → "switch_language"
     
     NOTE: Input may be in Arabic. Classify the intent regardless of language.
->>>>>>> Stashed changes
 
     Return ONLY the intent category name as a string, nothing else. 
     Examples: "navigation", "apply_filter", "category_navigation", etc.
