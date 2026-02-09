@@ -13,6 +13,7 @@ const VapiAssistantComponent = () => {
   const dragStartRef = useRef<{ x: number, y: number } | null>(null);
   const mouseDownStartRef = useRef<{ x: number, y: number } | null>(null);
   const hasMovedRef = useRef(false);
+  const isSpeechActiveRef = useRef(false);
 
   const vapiRef = useRef<any>(null);
   const location = useLocation();
@@ -147,12 +148,18 @@ const VapiAssistantComponent = () => {
 
 
 
+
+
+    // ... (keep existing code)
+
     vapi.on("speech-start", () => {
       setIsSpeechActive(true);
+      isSpeechActiveRef.current = true;
     });
 
     vapi.on("speech-end", () => {
       setIsSpeechActive(false);
+      isSpeechActiveRef.current = false;
       lastSpeechEndRef.current = Date.now();
     });
 
@@ -224,7 +231,7 @@ const VapiAssistantComponent = () => {
 
         // Global Echo Suppression
         // Ignore if assistant is currently speaking
-        if (isSpeechActive) {
+        if (isSpeechActiveRef.current) {
           console.log("[VapiAssistant] Ignoring transcript - Assistant is speaking");
           return;
         }

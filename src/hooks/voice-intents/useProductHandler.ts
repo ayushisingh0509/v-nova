@@ -12,6 +12,7 @@ interface UseProductHandlerProps {
     runGeminiText: RunGeminiText;
     extractJson: ExtractJson;
     logAction: LogAction;
+    speak: (text: string) => void;
 }
 
 export const getCurrentPageState = () => {
@@ -40,6 +41,7 @@ export const useProductHandler = ({
     runGeminiText,
     extractJson,
     logAction,
+    speak,
 }: UseProductHandlerProps) => {
     const { setSelectedSize, setQuantity, selectedSize, quantity } = useProduct();
     const { addItem } = useCart();
@@ -125,6 +127,7 @@ export const useProductHandler = ({
                         quantity: quantityToAdd
                     });
                     logAction(`Added ${quantityToAdd} ${currentProduct.name} to cart`);
+                    speak("Item added. Do you want to continue browsing or proceed to checkout?");
                     return true;
                 } else {
                     console.log("[Voice Debug] Size required but missing.");

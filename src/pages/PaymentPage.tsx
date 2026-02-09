@@ -41,7 +41,7 @@ const PaymentPage = () => {
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Only listen for voice command updates - do NOT auto-fill from storage
+  // Listen for voice command updates
   useEffect(() => {
     const handleStorageChange = (event: Event) => {
       const updatedInfo = getUserInfo();
@@ -88,7 +88,6 @@ const PaymentPage = () => {
       }
     };
 
-    // Listen for userInfoUpdated event only (both personal and credit card info are now handled by this event)
     window.addEventListener("userInfoUpdated", handleStorageChange);
 
     return () => {
@@ -127,30 +126,89 @@ const PaymentPage = () => {
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
 
-    if (!formData.name.trim()) newErrors.name = t('payment.error.fill'); // Simplified validation message for now or add specific keys if needed. Using generic fill error for required fields is okay? Actually I have specific messages in English code "Name is required". I didn't add "Name is required" key. I added 'payment.error.fill'. I should probably use that or leave it hardcoded? The user said "all text". 
-    // I should probably replace "Name is required" with t('payment.error.validate') or just a generic "Required".
-    // Let's use custom text for now to match the file, or maybe just leave validation English? No user wants translation.
-    // I'll use t('payment.error.fill') for all required fields for simplicity effectively saying "Please fill..." but that's for toast.
-    // I'll skip translating internal validation strings inside the function for now as they might appear in UI? Yes they appear in red text.
-    // I need keys for "Name is required". I missed these specific validation keys.
-    // I'll use t('payment.error.fill') as a fallback or just leave them english for a moment and focus on UI labels? 
-    // No, I should translate them.
-    // I will add a generic "Required" key in next step if I can, or use hardcoded arabic for now? No, better to update context later.
-    // unique problem: I didn't add specific validation error keys. 
-    // I'll skip validation strings effectively for THIS tool call, and focus on the visible UI labels first.
-    // I will add a TODO to fix validation strings.
-    if (!formData.name.trim()) newErrors.name = "Name is required";
-    if (!formData.email.trim()) newErrors.email = "Email is required";
-    else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = "Email is invalid";
+    // Name validation - must have at least 2 words
+    if (!formData.name.trim()) {
+      newErrors.name = "Name is required";
+    } else {
+      const nameWords = formData.name.trim().split(/\s+/).filter(w => w.length >= 2);
+      if (nameWords.length < 2) {
+        newErrors.name = "Please enter your full name (first and last name)";
+      }
+    }
 
-    if (!formData.address.trim()) newErrors.address = "Address is required";
-    if (!formData.phone.trim()) newErrors.phone = "Phone number is required";
+    // Email validation
+    if (!formData.email.trim()) {
+      newErrors.email = "Email is required";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      newErrors.email = "Please enter a valid email address";
+    }
 
+    // Address validation - must have at least 5 words
+    if (!formData.address.trim()) {
+      newErrors.address = "Address is required";
+    } else {
+      const addressWords = formData.address.trim().split(/\s+/).filter(w => w.length > 0);
+      if (addressWords.length < 5) {
+        newErrors.address = "Please enter your complete address including street, city, state, and zip code";
+      }
+    }
+
+    // Phone validation - must have at least 10 digits
+    if (!formData.phone.trim()) {
+      newErrors.phone = "Phone number is required";
+    } else {
+      const phoneDigits = formData.phone.replace(/[^0-9]/g, "");
+      if (phoneDigits.length < 10) {
+        newErrors.phone = "Please enter a valid 10-digit phone number";
+      }
+    }
+
+    // Credit card validation (only if credit card is selected)
     if (paymentMethod === "credit-card") {
-      if (!formData.cardName.trim()) newErrors.cardName = "Card name is required";
-      if (!formData.cardNumber.trim()) newErrors.cardNumber = "Card number is required";
-      if (!formData.expiryDate.trim()) newErrors.expiryDate = "Expiry date is required";
-      if (!formData.cvv.trim()) newErrors.cvv = "CVV is required";
+      // Card name - must have at least 2 words
+      if (!formData.cardName.trim()) {
+        newErrors.cardName = "Card name is required";
+      } else {
+        const cardNameWords = formData.cardName.trim().split(/\s+/).filter(w => w.length >= 2);
+        if (cardNameWords.length < 2) {
+          newErrors.cardName = "Please enter the full name as it appears on your card";
+        }
+      }
+
+      // Card number - must be 13-19 digits
+      if (!formData.cardNumber.trim()) {
+        newErrors.cardNumber = "Card number is required";
+      } else {
+        const cardDigits = formData.cardNumber.replace(/[^0-9]/g, "");
+        if (cardDigits.length < 13 || cardDigits.length > 19) {
+          newErrors.cardNumber = "Please enter a valid card number (13-19 digits)";
+        }
+      }
+
+      // Expiry date - must be in MM/YY format
+      if (!formData.expiryDate.trim()) {
+        newErrors.expiryDate = "Expiry date is required";
+      } else {
+        const expiryMatch = formData.expiryDate.match(/^(\d{1,2})\/(\d{2})$/);
+        if (!expiryMatch) {
+          newErrors.expiryDate = "Please enter expiry date in MM/YY format";
+        } else {
+          const month = parseInt(expiryMatch[1]);
+          if (month < 1 || month > 12) {
+            newErrors.expiryDate = "Please enter a valid month (01-12)";
+          }
+        }
+      }
+
+      // CVV - must be 3 or 4 digits
+      if (!formData.cvv.trim()) {
+        newErrors.cvv = "CVV is required";
+      } else {
+        const cvvDigits = formData.cvv.replace(/[^0-9]/g, "");
+        if (cvvDigits.length < 3 || cvvDigits.length > 4) {
+          newErrors.cvv = "CVV must be 3 or 4 digits";
+        }
+      }
     }
 
     setErrors(newErrors);

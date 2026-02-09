@@ -78,12 +78,7 @@ export const useVoiceCommandHandlers = ({ onRequestRestart }: UseVoiceCommandHan
     };
 
     // Import modular handlers
-    const navigationHandler = useNavigationHandler({ runGeminiText, extractJson, logAction });
-    const productHandler = useProductHandler({ runGeminiText, extractJson, logAction });
-    const filterHandler = useFilterHandler({ runGeminiText, extractJson, logAction });
-    const cartHandler = useCartHandler({ runGeminiText, extractJson, logAction });
 
-    // Checkout flow for guided payment collection
     // Checkout flow for guided payment collection
     const checkoutFlow = useCheckoutFlow();
     const speakCallbackRef = useRef<((text: string) => void) | null>(null);
@@ -103,6 +98,11 @@ export const useVoiceCommandHandlers = ({ onRequestRestart }: UseVoiceCommandHan
         }
         logAction(text);
     }, [logAction]);
+
+    const navigationHandler = useNavigationHandler({ runGeminiText, extractJson, logAction });
+    const productHandler = useProductHandler({ runGeminiText, extractJson, logAction, speak });
+    const filterHandler = useFilterHandler({ runGeminiText, extractJson, logAction });
+    const cartHandler = useCartHandler({ runGeminiText, extractJson, logAction });
 
     // --- Intent Handlers ---
 
@@ -249,26 +249,39 @@ export const useVoiceCommandHandlers = ({ onRequestRestart }: UseVoiceCommandHan
 
             // 3. Last spoken contains the transcript (Partial echo)
             // CRITICAL: Only if transcript is long enough to be unique, otherwise "Yes" matches "Yes or No"
-            if (normalizedTranscript.length > 10 && normalizedLastSpoken.includes(normalizedTranscript)) {
+            if (normalizedTranscript.length > 4 && normalizedLastSpoken.includes(normalizedTranscript)) {
                 console.log("[Voice Debug] Partial echo detected (significant length), ignoring.");
                 return;
             }
         }
 
         // If checkout flow is active, route to it first
+        // If checkout flow is active, route to it first, BUT check for escape commands
         if (checkoutFlow.isFlowActive) {
-            console.log("[Voice Debug] Checkout flow active, processing answer");
-            const result = checkoutFlow.processAnswer(transcript);
+            console.log("[Voice Debug] Checkout flow active, checking for escape commands...");
 
-            if (result.nextPrompt) {
-                speak(result.nextPrompt);
-            }
+            // Check if user is trying to navigate away or control the cart
+            const escapeIntent = await classifyPrimaryIntent(transcript);
+            const isEscapeCommand = ["navigation", "cart", "cart_update", "category_navigation"].includes(escapeIntent);
 
-            if (result.shouldConfirmOrder) {
-                // Trigger the actual order completion
-                triggerCheckout();
+            if (isEscapeCommand) {
+                console.log(`[Voice Debug] Escape command detected (${escapeIntent}), breaking checkout flow.`);
+                checkoutFlow.stopFlow?.(); // Ensure we stop the flow state
+                // Proceed to standard handling below
+            } else {
+                console.log("[Voice Debug] Processing as checkout input");
+                const result = checkoutFlow.processAnswer(transcript);
+
+                if (result.nextPrompt) {
+                    speak(result.nextPrompt);
+                }
+
+                if (result.shouldConfirmOrder) {
+                    // Trigger the actual order completion
+                    triggerCheckout();
+                }
+                return;
             }
-            return;
         }
 
         logAction(`Processing: "${transcript}"`);

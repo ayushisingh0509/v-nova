@@ -12,7 +12,7 @@ const ConfirmationPage = () => {
   const { getUserInfo } = useUserInfo();
   const { t } = useLanguage();
   const userInfo = getUserInfo();
-  const orderNumber = "ORD" + Math.floor(100000 + Math.random() * 900000);
+  const orderNumber = React.useMemo(() => "ORD" + Math.floor(100000 + Math.random() * 900000), []);
 
   useEffect(() => {
     // Scroll to top when the component mounts

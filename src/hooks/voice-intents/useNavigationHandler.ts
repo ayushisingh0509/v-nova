@@ -121,7 +121,7 @@ export const useNavigationHandler = ({
             const cleaned = extractJson(responseText);
             const parsed = JSON.parse(cleaned);
 
-            if (parsed.productId) {
+            if (parsed.productId && parsed.confidence >= 0.7) {
                 const product = products.find(p => p.id === parsed.productId);
                 if (product) {
                     lastNavigationTimeRef.current = Date.now(); // Set cooldown
@@ -129,6 +129,8 @@ export const useNavigationHandler = ({
                     logAction(`Navigating to ${product.name}`);
                     return true;
                 }
+            } else if (parsed.productId && parsed.confidence < 0.7) {
+                console.log(`[Voice Debug] Product navigation rejected: low confidence ${parsed.confidence}`);
             }
             return false;
         } catch (error) {
