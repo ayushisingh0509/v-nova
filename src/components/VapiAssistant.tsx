@@ -230,16 +230,14 @@ const VapiAssistantComponent = () => {
         console.log(`[VapiAssistant ${instanceId}] Final transcript:`, transcriptText);
 
         // Global Echo Suppression
-        // Ignore if assistant is currently speaking
-        if (isSpeechActiveRef.current) {
-          console.log("[VapiAssistant] Ignoring transcript - Assistant is speaking");
-          return;
-        }
 
-        // Time-based suppression: increased to 4s
+        // Removed `isSpeechActiveRef` check to allow user interruptions.
+        // We now rely on content-based matching to filter echoes.
+
+        // Time-based suppression: minimal buffer for audio loopback
         const timeSinceSpeech = Date.now() - lastSpeechEndRef.current;
-        if (timeSinceSpeech < 2000) {
-          console.log(`[VapiAssistant] Ignoring transcript - Assistant spoke recently (${timeSinceSpeech}ms ago)`);
+        if (timeSinceSpeech < 100) {
+          console.log(`[VapiAssistant] Ignoring transcript - Too close to assistant speech end (${timeSinceSpeech}ms)`);
           return;
         }
 

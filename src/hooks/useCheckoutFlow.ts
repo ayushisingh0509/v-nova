@@ -165,10 +165,23 @@ export const useCheckoutFlow = () => {
         const trimmed = value.trim();
         const lowerValue = trimmed.toLowerCase();
 
+        // Global check for command phrases masquerading as input
+        const COMMAND_PHRASES = [
+            "complete purchase", "complete the purchase", "place order", "place the order",
+            "check out", "buy now", "yes complete", "yes proceed", "confirm order"
+        ];
+        if (COMMAND_PHRASES.some(phrase => lowerValue.includes(phrase))) {
+            return {
+                valid: false,
+                extractedValue: "",
+                error: "I still need this information before we can complete your order."
+            };
+        }
+
         switch (step) {
             case "name":
             case "cardName":
-                // 1. Check for digits - names shouldn't have numbers
+                // 1. Check for digits
                 if (/\d/.test(trimmed)) {
                     return {
                         valid: false,
@@ -186,16 +199,17 @@ export const useCheckoutFlow = () => {
                         error: "Please say your name."
                     };
                 }
-                // If only one word, it must be at least 2 characters
-                if (nameWords.length === 1 && nameWords[0].length < 2) {
+
+                // 3. Command/Question/Filler check
+                // "Yes" or "No" answers to "What is your name?" are invalid
+                if (["yes", "no", "yep", "nope", "sure", "ok"].includes(lowerValue.replace(/[^\w]/g, ""))) {
                     return {
                         valid: false,
                         extractedValue: "",
-                        error: "Please say your full name."
+                        error: `Please say the ${step === "cardName" ? "name on your card" : "full name"}.`
                     };
                 }
 
-                // 3. Command/Question check
                 if (lowerValue.includes("what") || lowerValue.includes("card") || lowerValue.includes("can") || lowerValue.includes("how") || lowerValue.includes("pay")) {
                     return { valid: false, extractedValue: "", error: "Please say only your name." };
                 }
@@ -238,10 +252,7 @@ export const useCheckoutFlow = () => {
                         error: "Please say your complete shipping address including street and city."
                     };
                 }
-                // Robustness: Addresses usually have a number (house number or zip)
-                // Exception: "Main Street" (might be valid in some contexts but weak)
                 if (!/\d/.test(trimmed) && addressWords.length < 4) {
-                    // If no numbers, require more words to be sure it's an address
                     return {
                         valid: false,
                         extractedValue: "",
@@ -269,12 +280,7 @@ export const useCheckoutFlow = () => {
                 return { valid: true, extractedValue: formatted, error: "" };
 
             case "cardNumber":
-                // Extract card number digits
                 const cardDigits = trimmed.replace(/[^0-9]/g, "");
-                // Strict check: input shouldn't have too many non-digits
-                // If the user said "My card is one two three", extractValue handled it.
-                // But if they said "I don't have a card", cardDigits might be empty or small.
-
                 if (cardDigits.length < 13 || cardDigits.length > 19) {
                     return {
                         valid: false,
@@ -282,12 +288,10 @@ export const useCheckoutFlow = () => {
                         error: "Please say all 16 digits of your card number."
                     };
                 }
-                // Format with spaces
                 const cardFormatted = cardDigits.match(/.{1,4}/g)?.join(" ") || cardDigits;
                 return { valid: true, extractedValue: cardFormatted, error: "" };
 
             case "expiryDate":
-                // Extract numbers for month and year
                 const numbers = trimmed.match(/\d+/g);
                 if (!numbers || numbers.length < 2) {
                     return {
@@ -300,7 +304,6 @@ export const useCheckoutFlow = () => {
                 let year = numbers[1];
                 if (year.length === 4) year = year.slice(2);
 
-                // Validate month
                 const monthNum = parseInt(month);
                 if (monthNum < 1 || monthNum > 12) {
                     return {
@@ -309,9 +312,6 @@ export const useCheckoutFlow = () => {
                         error: "Please say a valid month between 1 and 12."
                     };
                 }
-
-                // Validate year (basic future check could be added here, but format is key)
-
                 return { valid: true, extractedValue: `${month}/${year}`, error: "" };
 
             case "cvv":
@@ -341,16 +341,38 @@ export const useCheckoutFlow = () => {
             return { success: false, nextPrompt: "" };
         }
 
-        // Grace period: Ignore inputs within 5 seconds of any step change
+        // Grace period
         const timeSinceLastChange = Date.now() - lastStepChangeRef.current;
-        if (timeSinceLastChange < 5000) {
+        if (timeSinceLastChange < 500) {
             console.log(`[CheckoutFlow] Ignoring input during grace period (${timeSinceLastChange}ms since step change)`);
             return { success: false, nextPrompt: "" };
         }
 
-        // Handle confirmation step
+        const lowerTranscript = transcript.toLowerCase();
+
+        // 0. Handle Correction/Navigation Commands
+        if (lowerTranscript.includes("go back") || lowerTranscript.includes("previous step") || (lowerTranscript.includes("wrong") && lowerTranscript.length < 20)) {
+            const currentIndex = STEP_ORDER.indexOf(currentStep);
+            if (currentIndex > 0) {
+                const prevStep = STEP_ORDER[currentIndex - 1];
+                setCurrentStep(prevStep);
+                lastStepChangeRef.current = Date.now();
+                return {
+                    success: true,
+                    nextPrompt: `Okay, let's fix that. ${STEP_PROMPTS[prevStep]}`
+                };
+            }
+        }
+
+        // Handle "change X" commands
+        // This is a simple implementation, a full map would be better
+        if (currentStep !== "confirm" && lowerTranscript.includes("change")) {
+            // If user says "change name" while in email step, we could jump back.
+            // For now, let's just handle "wrong" generally to go back one step.
+        }
+
+        // 1. Handle confirmation step
         if (currentStep === "confirm") {
-            const lowerTranscript = transcript.toLowerCase();
             if (lowerTranscript.includes("yes") || lowerTranscript.includes("place") ||
                 lowerTranscript.includes("confirm") || lowerTranscript.includes("proceed")) {
                 setCurrentStep("complete");
@@ -368,36 +390,34 @@ export const useCheckoutFlow = () => {
             return { success: false, nextPrompt: "Please say yes to confirm or no to cancel." };
         }
 
-        // Check if this is an echo of assistant speech
+        // 2. Check for echo
         if (isEcho(transcript)) {
             console.log("[CheckoutFlow] Ignoring echo:", transcript);
             return { success: false, nextPrompt: "" };
         }
 
-        // Explicitly ignore conversational fillers
-        const lower = transcript.toLowerCase().trim().replace(/[^a-z ]/g, "");
-        if (IGNORE_PHRASES.includes(lower)) {
+        // 3. Ignore conversational fillers
+        const cleanLower = lowerTranscript.trim().replace(/[^a-z ]/g, "");
+        if (IGNORE_PHRASES.includes(cleanLower)) {
             console.log("[CheckoutFlow] Ignoring conversational filler:", transcript);
             return { success: false, nextPrompt: "" };
         }
 
-        // Extract the actual value from natural language
+        // 4. Extract value
         const extractedTranscript = extractValue(currentStep, transcript);
         console.log("[CheckoutFlow] Extracted value:", extractedTranscript, "from transcript:", transcript);
 
-        // Validate the input for the current step
+        // 5. Validate
         const validation = validateInput(currentStep, extractedTranscript);
         if (!validation.valid) {
             console.log("[CheckoutFlow] Validation failed:", validation.error);
             return { success: false, nextPrompt: validation.error };
         }
 
-        // Store the collected data
+        // 6. Store data & Update Context
         const newData = { ...collectedData, [currentStep]: validation.extractedValue };
         setCollectedData(newData);
-        console.log("[CheckoutFlow] Data collected for", currentStep, ":", validation.extractedValue);
 
-        // Save to UserInfo context
         const fieldMapping: Record<string, string> = {
             name: "name",
             email: "email",
@@ -413,7 +433,6 @@ export const useCheckoutFlow = () => {
         if (userInfoField) {
             updateUserInfo({ [userInfoField]: validation.extractedValue });
 
-            // Dispatch event to update payment page form
             window.dispatchEvent(new CustomEvent("userInfoUpdated", {
                 detail: {
                     message: `${currentStep} updated`,
@@ -422,7 +441,7 @@ export const useCheckoutFlow = () => {
             }));
         }
 
-        // Move to next step
+        // 7. Move to next step
         const nextStep = getNextStep(currentStep);
         setCurrentStep(nextStep);
         lastStepChangeRef.current = Date.now();
@@ -432,10 +451,9 @@ export const useCheckoutFlow = () => {
         }
 
         const nextPrompt = STEP_PROMPTS[nextStep];
-        console.log("[CheckoutFlow] Moving to next step:", nextStep);
-
         return { success: true, nextPrompt };
-    }, [currentStep, collectedData, updateUserInfo, stopFlow]);
+
+    }, [currentStep, collectedData, updateUserInfo, stopFlow, extractValue, validateInput]);
 
     return {
         currentStep,
