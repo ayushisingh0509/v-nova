@@ -1,3 +1,4 @@
+import { useCallback, useMemo } from "react";
 import { prompts } from "@/lib/prompts";
 import { useFilters, FilterState } from "@/context/FilterContext";
 import { filterOptions } from "@/data/products";
@@ -20,7 +21,7 @@ export const useFilterHandler = ({
 }: UseFilterHandlerProps) => {
     const { updateFilters, clearFilters, removeFilter } = useFilters();
 
-    const interpretFilterCommand = async (transcript: string) => {
+    const interpretFilterCommand = useCallback(async (transcript: string) => {
         try {
             const prompt = prompts.filterCommand
                 .replace("{transcript}", transcript)
@@ -78,9 +79,9 @@ export const useFilterHandler = ({
             console.error("Filter command error:", error);
             return false;
         }
-    };
+    }, [updateFilters, logAction, runGeminiText, extractJson]);
 
-    const handleRemoveFilters = async (transcript: string) => {
+    const handleRemoveFilters = useCallback(async (transcript: string) => {
         try {
             const prompt = prompts.removeFilterCommand
                 .replace("{transcript}", transcript)
@@ -112,17 +113,17 @@ export const useFilterHandler = ({
             console.error("Remove filter error:", error);
             return false;
         }
-    };
+    }, [removeFilter, clearFilters, logAction, runGeminiText, extractJson]);
 
-    const handleClearFilters = () => {
+    const handleClearFilters = useCallback(() => {
         clearFilters();
         logAction("Filters cleared");
         return true;
-    };
+    }, [clearFilters, logAction]);
 
-    return {
+    return useMemo(() => ({
         interpretFilterCommand,
         handleRemoveFilters,
         handleClearFilters,
-    };
+    }), [interpretFilterCommand, handleRemoveFilters, handleClearFilters]);
 };

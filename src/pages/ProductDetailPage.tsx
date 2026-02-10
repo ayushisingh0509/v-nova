@@ -42,12 +42,16 @@ const ProductDetailPage = () => {
 
   useEffect(() => {
     if (product) {
+      console.log(`[ProductDetailPage] Effect triggered - Resetting product state for product: ${product.id}`);
       resetProductState();
       setShowError(false);
     }
-  }, [product, resetProductState]);
+  }, [id, resetProductState]);
+
+  console.log(`[ProductDetailPage] Render - Product: ${product?.name}, SelectedSize: "${selectedSize}"`);
 
   const handleAddToCart = () => {
+    console.log(`[ProductDetailPage] handleAddToCart triggered. Current selectedSize: "${selectedSize}"`);
     if (!selectedSize) {
       setShowError(true);
       toast({

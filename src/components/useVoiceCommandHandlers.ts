@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { prompts } from "@/lib/prompts";
@@ -68,14 +68,14 @@ export const useVoiceCommandHandlers = ({ onRequestRestart }: UseVoiceCommandHan
         Array<{ timestamp: number; action: string; success: boolean }>
     >([]);
 
-    const logAction = (action: string, success: boolean = true) => {
+    const logAction = useCallback((action: string, success: boolean = true) => {
         console.log(`Voice Action [${success ? "SUCCESS" : "FAILURE"}]: ${action}`);
         setActionLog((prevLog) => [
             { timestamp: Date.now(), action, success },
             ...prevLog.slice(0, 19),
         ]);
         setLastAction(action);
-    };
+    }, []);
 
     // Import modular handlers
 
@@ -106,7 +106,7 @@ export const useVoiceCommandHandlers = ({ onRequestRestart }: UseVoiceCommandHan
 
     // --- Intent Handlers ---
 
-    const classifyPrimaryIntent = async (transcript: string): Promise<string> => {
+    const classifyPrimaryIntent = useCallback(async (transcript: string): Promise<string> => {
         // Manual overrides for critical path commands to ensure reliability
         const lower = transcript.toLowerCase();
         if (lower.includes("checkout") ||
@@ -125,9 +125,9 @@ export const useVoiceCommandHandlers = ({ onRequestRestart }: UseVoiceCommandHan
             console.error("Intent classification error:", error);
             return "general_command";
         }
-    };
+    }, []);
 
-    const handleUserInfoUpdate = async (transcript: string) => {
+    const handleUserInfoUpdate = useCallback(async (transcript: string) => {
         try {
             const prompt = prompts.userInfoUpdate.replace("{transcript}", transcript);
             const responseText = await runGeminiText(prompt);
@@ -151,9 +151,9 @@ export const useVoiceCommandHandlers = ({ onRequestRestart }: UseVoiceCommandHan
             console.error("User info update error:", error);
             return false;
         }
-    };
+    }, [getUserInfo, updateUserInfo, logAction]);
 
-    const handleOrderCompletion = async (transcript: string) => {
+    const handleOrderCompletion = useCallback(async (transcript: string) => {
         try {
             // Manual check for speed and reliability
             const lower = transcript.toLowerCase();
@@ -190,9 +190,9 @@ export const useVoiceCommandHandlers = ({ onRequestRestart }: UseVoiceCommandHan
             console.error("Order complete error:", error);
             return false;
         }
-    };
+    }, [triggerCheckout, logAction, navigate]);
 
-    const handleReadScreen = async () => {
+    const handleReadScreen = useCallback(async () => {
         try {
             const info = getUserInfo();
             const filledFields = Object.entries(info)
@@ -217,9 +217,9 @@ export const useVoiceCommandHandlers = ({ onRequestRestart }: UseVoiceCommandHan
             console.error("Error reading screen:", error);
             return false;
         }
-    };
+    }, [getUserInfo, speak, logAction]);
 
-    const processVoiceCommand = async (transcript: string) => {
+    const processVoiceCommand = useCallback(async (transcript: string) => {
         console.log("%c[Voice Debug] Processing command:", "color: blue; font-weight: bold", transcript);
 
         // Ignore very short transcripts (noise/false positives)
@@ -348,14 +348,27 @@ export const useVoiceCommandHandlers = ({ onRequestRestart }: UseVoiceCommandHan
             console.error("[Voice Debug] Error processing voice command:", error);
             logAction("Error processing command", false);
         }
-    };
+    }, [
+        checkoutFlow,
+        classifyPrimaryIntent,
+        speak,
+        triggerCheckout,
+        logAction,
+        navigationHandler,
+        productHandler,
+        filterHandler,
+        handleUserInfoUpdate,
+        handleOrderCompletion,
+        cartHandler,
+        handleReadScreen
+    ]);
 
     // Kept for compatibility
     const executeTool = async (toolName: string, args: any) => {
         return "Legacy tool execution";
     };
 
-    return {
+    return useMemo(() => ({
         logAction,
         lastAction,
         actionLog,
@@ -367,5 +380,13 @@ export const useVoiceCommandHandlers = ({ onRequestRestart }: UseVoiceCommandHan
         startCheckoutFlow: checkoutFlow.startFlow,
         registerSpeakCallback,
         speak
-    };
+    }), [
+        logAction,
+        lastAction,
+        actionLog,
+        processVoiceCommand,
+        checkoutFlow,
+        registerSpeakCallback,
+        speak
+    ]);
 };

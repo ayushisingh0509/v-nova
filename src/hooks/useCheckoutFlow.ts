@@ -55,7 +55,12 @@ const ASSISTANT_PHRASES = [
     "great", "perfect", "excellent", "thank you", "thanks", "now for",
     "please say", "i didn't catch", "i need", "say it as", "i have all",
     "would you like", "place the order", "your order has been", "successfully",
-    "let's", "okay", "sure", "alright", "got it"
+    "let's", "okay", "sure", "alright", "got it", "i understand", "cool", "wait", "hold on"
+];
+
+// Phrases that should be ignored if they appear on their own
+const IGNORE_PHRASES = [
+    "okay", "ok", "sure", "yeah", "yep", "no", "nope", "got it", "right", "alright", "cool", "wait", "hold on"
 ];
 
 export const useCheckoutFlow = () => {
@@ -142,13 +147,15 @@ export const useCheckoutFlow = () => {
             case "phone":
                 return extractPhone(transcript);
             case "cardNumber":
-                return extractCardNumber(transcript);
+                // Aggressively strip everything except digits
+                return transcript.replace(/[^0-9]/g, "");
             case "expiryDate":
                 return extractExpiryDate(transcript);
             case "cvv":
-                return extractCVV(transcript);
+                // Aggressively strip everything except digits
+                return transcript.replace(/[^0-9]/g, "");
             default:
-                // Basic cleanup for unknown steps
+                // Basic cleanup
                 return transcript.trim().replace(/[.,!?;:]+$/, "");
         }
     };
@@ -161,8 +168,16 @@ export const useCheckoutFlow = () => {
         switch (step) {
             case "name":
             case "cardName":
-                // Accept single name (common in many cultures) or full name
-                // Minimum: 1 word with 2+ characters OR 2+ words
+                // 1. Check for digits - names shouldn't have numbers
+                if (/\d/.test(trimmed)) {
+                    return {
+                        valid: false,
+                        extractedValue: "",
+                        error: "Names usually don't contain numbers. Please say your name again."
+                    };
+                }
+
+                // 2. Length check
                 const nameWords = trimmed.split(/\s+/).filter(w => w.length >= 2);
                 if (nameWords.length < 1) {
                     return {
@@ -179,7 +194,8 @@ export const useCheckoutFlow = () => {
                         error: "Please say your full name."
                     };
                 }
-                // Check it's not a question or command
+
+                // 3. Command/Question check
                 if (lowerValue.includes("what") || lowerValue.includes("card") || lowerValue.includes("can") || lowerValue.includes("how") || lowerValue.includes("pay")) {
                     return { valid: false, extractedValue: "", error: "Please say only your name." };
                 }
@@ -213,7 +229,7 @@ export const useCheckoutFlow = () => {
                 return { valid: true, extractedValue: emailValue, error: "" };
 
             case "address":
-                // Must have at least 3 words (street/number + city OR street + building + city)
+                // Must have at least 3 words and usually a number
                 const addressWords = trimmed.split(/\s+/).filter(w => w.length > 0);
                 if (addressWords.length < 3) {
                     return {
@@ -222,7 +238,17 @@ export const useCheckoutFlow = () => {
                         error: "Please say your complete shipping address including street and city."
                     };
                 }
-                // Check it's not a question
+                // Robustness: Addresses usually have a number (house number or zip)
+                // Exception: "Main Street" (might be valid in some contexts but weak)
+                if (!/\d/.test(trimmed) && addressWords.length < 4) {
+                    // If no numbers, require more words to be sure it's an address
+                    return {
+                        valid: false,
+                        extractedValue: "",
+                        error: "Please say your full address with house number and street."
+                    };
+                }
+
                 if (lowerValue.includes("what") || lowerValue.includes("address") || lowerValue.includes("shipping")) {
                     return { valid: false, extractedValue: "", error: "Please say only your address." };
                 }
@@ -245,6 +271,10 @@ export const useCheckoutFlow = () => {
             case "cardNumber":
                 // Extract card number digits
                 const cardDigits = trimmed.replace(/[^0-9]/g, "");
+                // Strict check: input shouldn't have too many non-digits
+                // If the user said "My card is one two three", extractValue handled it.
+                // But if they said "I don't have a card", cardDigits might be empty or small.
+
                 if (cardDigits.length < 13 || cardDigits.length > 19) {
                     return {
                         valid: false,
@@ -280,6 +310,8 @@ export const useCheckoutFlow = () => {
                     };
                 }
 
+                // Validate year (basic future check could be added here, but format is key)
+
                 return { valid: true, extractedValue: `${month}/${year}`, error: "" };
 
             case "cvv":
@@ -288,7 +320,7 @@ export const useCheckoutFlow = () => {
                     return {
                         valid: false,
                         extractedValue: "",
-                        error: "The CVV should be 3 or 4 digits. Please say the numbers."
+                        error: "The CVV should be 3 or 4 digits."
                     };
                 }
                 return { valid: true, extractedValue: cvvDigits, error: "" };
@@ -339,6 +371,13 @@ export const useCheckoutFlow = () => {
         // Check if this is an echo of assistant speech
         if (isEcho(transcript)) {
             console.log("[CheckoutFlow] Ignoring echo:", transcript);
+            return { success: false, nextPrompt: "" };
+        }
+
+        // Explicitly ignore conversational fillers
+        const lower = transcript.toLowerCase().trim().replace(/[^a-z ]/g, "");
+        if (IGNORE_PHRASES.includes(lower)) {
+            console.log("[CheckoutFlow] Ignoring conversational filler:", transcript);
             return { success: false, nextPrompt: "" };
         }
 

@@ -778,7 +778,7 @@ export const products: Product[] = [
     image:
       "https://www.technosport.in/cdn/shop/files/OR10-Black_1_6501e14d-b267-4278-becf-93dcd949df7c.webp?v=1738843050",
     category: "gym",
-    gender: "women",
+    gender: "men",
     colors: ["black", "blue", "green"],
     sizes: ["XS", "S", "M", "L"],
     materials: ["polyester", "cotton"],

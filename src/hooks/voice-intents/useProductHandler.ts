@@ -1,3 +1,4 @@
+import { useCallback, useMemo } from "react";
 import { products, Product } from "@/data/products";
 import { prompts } from "@/lib/prompts";
 import { useProduct } from "@/context/ProductContext";
@@ -46,14 +47,16 @@ export const useProductHandler = ({
     const { setSelectedSize, setQuantity, selectedSize, quantity } = useProduct();
     const { addItem } = useCart();
 
-    const handleProductActions = async (transcript: string) => {
+    const handleProductActions = useCallback(async (transcript: string) => {
         try {
+            console.log(`[useProductHandler] handleProductActions called. selectedSize: "${selectedSize}"`);
+
             const pageState = getCurrentPageState();
             let currentProduct = pageState.currentProduct;
             let productName = currentProduct ? currentProduct.name : "current product";
             let productSizes = currentProduct ? currentProduct.sizes.join(", ") : "";
 
-            console.log("[Voice Debug] Product Action Context:", { productName, productSizes, transcript });
+            console.log("[Voice Debug] Product Action Context:", { productName, productSizes, transcript, selectedSize });
 
             const prompt = prompts.productAction
                 .replace("{productName}", productName)
@@ -88,33 +91,57 @@ export const useProductHandler = ({
                 return false;
             }
 
-            if (parsed.action === "size" && parsed.size) {
+            // Handle explicit size setting even if action is addToCart
+            if (parsed.size) {
                 const matchedSize = currentProduct.sizes.find(s => s.toLowerCase() === parsed.size.toLowerCase());
                 if (matchedSize) {
-                    setSelectedSize(matchedSize);
-                    logAction(`Size set to ${matchedSize}`);
-                    return true;
+                    if (matchedSize !== selectedSize) {
+                        setSelectedSize(matchedSize);
+                        logAction(`Size set to ${matchedSize}`);
+                    }
+
+                    // If action is JUST size, return here. If addToCart, we continue down.
+                    if (parsed.action === "size") {
+                        return true;
+                    }
+                } else {
+                    console.log("[Voice Debug] Size mismatch:", parsed.size, "Available:", currentProduct.sizes);
+                    // If action was just size, we should probably return or warn
+                    if (parsed.action === "size") {
+                        speak(`I couldn't find size ${parsed.size}. Available sizes are ${currentProduct.sizes.join(", ")}`);
+                        return true;
+                    }
                 }
-                console.log("[Voice Debug] Size mismatch:", parsed.size, "Available:", currentProduct.sizes);
             }
 
-            if (parsed.action === "quantity" && parsed.quantity) {
-                setQuantity(parsed.quantity);
-                logAction(`Quantity set to ${parsed.quantity}`);
+            // Ensure quantity is a number
+            const parsedQuantity = parsed.quantity ? parseInt(String(parsed.quantity), 10) : undefined;
+
+            if (parsed.action === "quantity" && parsedQuantity) {
+                setQuantity(parsedQuantity);
+                logAction(`Quantity set to ${parsedQuantity}`);
                 return true;
             }
 
             if (parsed.action === "addToCart") {
                 console.log("[Voice Debug] Attempting Add to Cart...");
-                let sizeToAdd = selectedSize;
+
+                // Determine size to add: Explicitly mentioned size > Context size > Single available size
+                let sizeToAdd = parsed.size ?
+                    currentProduct.sizes.find(s => s.toLowerCase() === parsed.size.toLowerCase()) :
+                    selectedSize;
+
                 // Default size logic if needed
-                if (!sizeToAdd && currentProduct.sizes.length > 0) {
-                    sizeToAdd = currentProduct.sizes[0];
-                    console.log("[Voice Debug] Auto-selected first size:", sizeToAdd);
+                if (!sizeToAdd) {
+                    // Try to see if there's only one size available, then we can safe-default
+                    if (currentProduct.sizes.length === 1) {
+                        sizeToAdd = currentProduct.sizes[0];
+                        console.log("[Voice Debug] Auto-selected single available size:", sizeToAdd);
+                    }
                 }
 
                 // Use quantity from voice command OR default to 1 (not the context quantity which may be stale)
-                const quantityToAdd = parsed.quantity || 1;
+                const quantityToAdd = parsedQuantity || 1;
 
                 if (sizeToAdd) {
                     console.log("[Voice Debug] Adding to cart:", currentProduct.name, sizeToAdd, "qty:", quantityToAdd);
@@ -132,6 +159,7 @@ export const useProductHandler = ({
                 } else {
                     console.log("[Voice Debug] Size required but missing.");
                     logAction("Please select a size first");
+                    speak("Please select a size first");
                     return true;
                 }
             }
@@ -141,10 +169,10 @@ export const useProductHandler = ({
             console.error("[Voice Debug] Product action error:", error);
             return false;
         }
-    };
+    }, [selectedSize, quantity, addItem, runGeminiText, extractJson, logAction, speak, setSelectedSize, setQuantity]);
 
-    return {
+    return useMemo(() => ({
         handleProductActions,
         getCurrentPageState,
-    };
+    }), [handleProductActions]);
 };

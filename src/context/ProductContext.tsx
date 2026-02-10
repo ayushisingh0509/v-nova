@@ -11,11 +11,17 @@ type ProductContextType = {
 const ProductContext = createContext<ProductContextType | undefined>(undefined);
 
 export const ProductProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [selectedSize, setSelectedSize] = useState<string>("");
+  const [selectedSize, setSelectedSizeState] = useState<string>("");
+
+  const setSelectedSize = useCallback((size: string) => {
+    console.log(`[ProductContext] Setting selected size to: "${size}"`);
+    setSelectedSizeState(size);
+  }, []);
   const [quantity, setQuantity] = useState<number>(1);
 
   // Use useCallback to prevent unnecessary re-renders
   const resetProductState = useCallback(() => {
+    console.log("[ProductContext] Resetting product state");
     setSelectedSize("");
     setQuantity(1);
   }, []);
@@ -27,14 +33,19 @@ export const ProductProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setQuantity(validQuantity);
   }, []);
 
+  const handleSetSelectedSize = useCallback((size: string) => {
+    console.log(`[ProductContext] Setting selected size to: "${size}"`);
+    setSelectedSize(size);
+  }, []);
+
   return (
-    <ProductContext.Provider 
-      value={{ 
-        selectedSize, 
-        quantity, 
-        setSelectedSize, 
-        setQuantity: handleSetQuantity, 
-        resetProductState 
+    <ProductContext.Provider
+      value={{
+        selectedSize,
+        quantity,
+        setSelectedSize: handleSetSelectedSize,
+        setQuantity: handleSetQuantity,
+        resetProductState
       }}
     >
       {children}

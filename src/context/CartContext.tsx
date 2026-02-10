@@ -59,7 +59,8 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   }, [items]);
 
   const addItem = (item: CartItem) => {
-    console.log("[CartContext] Adding item:", item);
+    console.log("[CartContext] addItem CALLED. Item:", item);
+    console.log(`[CartContext] Adding size: "${item.size}"`);
     setItems((prevItems) => {
       const existingItemIndex = prevItems.findIndex(
         (i) => i.id === item.id && i.size === item.size && i.color === item.color

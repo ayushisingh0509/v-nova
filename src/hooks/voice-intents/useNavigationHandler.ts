@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { useRef } from "react";
+import { useRef, useCallback, useMemo } from "react";
 import { products } from "@/data/products";
 import { prompts } from "@/lib/prompts";
 
@@ -24,7 +24,7 @@ export const useNavigationHandler = ({
     const lastNavigationTimeRef = useRef<number>(0);
     const NAVIGATION_COOLDOWN_MS = 3000; // 3 second cooldown after navigation
 
-    const handleNavigationCommand = async (transcript: string) => {
+    const handleNavigationCommand = useCallback(async (transcript: string) => {
         try {
             // Check navigation cooldown
             const now = Date.now();
@@ -54,9 +54,9 @@ export const useNavigationHandler = ({
             console.error("Navigation error:", error);
             return false;
         }
-    };
+    }, [navigate, logAction, runGeminiText, extractJson]);
 
-    const handleCartNavigation = async (transcript: string) => {
+    const handleCartNavigation = useCallback(async (transcript: string) => {
         try {
             const prompt = prompts.cartNavigation.replace("{transcript}", transcript);
             const response = (await runGeminiText(prompt)).trim().toLowerCase();
@@ -70,9 +70,9 @@ export const useNavigationHandler = ({
             console.error("Cart navigation error:", error);
             return false;
         }
-    };
+    }, [navigate, logAction, runGeminiText]);
 
-    const handleCategoryNavigation = async (transcript: string) => {
+    const handleCategoryNavigation = useCallback(async (transcript: string) => {
         try {
             const prompt = prompts.categoryNavigation.replace("{transcript}", transcript);
             const responseText = await runGeminiText(prompt);
@@ -98,9 +98,9 @@ export const useNavigationHandler = ({
             console.error("Category navigation error:", error);
             return false;
         }
-    };
+    }, [navigate, logAction, runGeminiText, extractJson]);
 
-    const handleProductDetailNavigation = async (transcript: string) => {
+    const handleProductDetailNavigation = useCallback(async (transcript: string) => {
         try {
             // Check navigation cooldown
             const now = Date.now();
@@ -137,12 +137,17 @@ export const useNavigationHandler = ({
             console.error("Product detail nav error:", error);
             return false;
         }
-    };
+    }, [navigate, logAction, runGeminiText, extractJson]);
 
-    return {
+    return useMemo(() => ({
         handleNavigationCommand,
         handleCartNavigation,
         handleCategoryNavigation,
         handleProductDetailNavigation,
-    };
+    }), [
+        handleNavigationCommand,
+        handleCartNavigation,
+        handleCategoryNavigation,
+        handleProductDetailNavigation
+    ]);
 };

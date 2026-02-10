@@ -1,3 +1,4 @@
+import { useCallback, useMemo } from "react";
 import { useCart } from "@/context/CartContext";
 import { prompts } from "@/lib/prompts";
 
@@ -19,7 +20,7 @@ export const useCartHandler = ({
 }: UseCartHandlerProps) => {
     const { items, removeItem, updateQuantity } = useCart();
 
-    const handleCartUpdate = async (transcript: string) => {
+    const handleCartUpdate = useCallback(async (transcript: string) => {
         try {
             const cartItemsText = items
                 .map((item) => `- ${item.name} (Qty: ${item.quantity})`)
@@ -100,9 +101,9 @@ export const useCartHandler = ({
             console.error("Cart update error:", error);
             return false;
         }
-    };
+    }, [items, removeItem, updateQuantity, logAction, runGeminiText, extractJson]);
 
-    return {
+    return useMemo(() => ({
         handleCartUpdate
-    };
+    }), [handleCartUpdate]);
 };
